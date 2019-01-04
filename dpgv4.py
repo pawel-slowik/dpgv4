@@ -124,6 +124,7 @@ def create_gop(mpeg_file_object):
     mpeg_file_object.seek(0)
     cmd = [
         FFPROBE,
+        "-hide_banner",
         "-print_format", "compact",
         "-show_frames", "-select_streams", "v",
         "-",
@@ -134,7 +135,7 @@ def create_gop(mpeg_file_object):
             cmd,
             stdin=mpeg_file_object,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             universal_newlines=True,
     ) as process:
         for row in csv.reader(process.stdout, delimiter="|"):
@@ -145,6 +146,9 @@ def create_gop(mpeg_file_object):
                 gop += struct.pack("<l", frame_number)
                 gop += struct.pack("<l", int(frame["pkt_pos"]))
             frame_number += 1
+        process.wait()
+        if process.returncode != 0:
+            raise ExternalCommandFailedError(process_error_message(process))
     return gop
 
 def create_screenshot(file_object, seconds):
@@ -202,6 +206,7 @@ def prepare_video_conversion_command(input_file, framerate, quality, sid, font):
     width, height = calculate_dimensions(input_file)
     v_cmd = [
         FFMPEG,
+        "-hide_banner",
         "-i", input_file,
         "-f", "data",
         "-map", "0:v:0",
@@ -221,6 +226,7 @@ def prepare_video_conversion_command(input_file, framerate, quality, sid, font):
 def prepare_audio_conversion_command(input_file, aid):
     a_cmd = [
         FFMPEG,
+        "-hide_banner",
         "-i", input_file,
         "-f", "data",
         "-map", "0:a:%d" % (0 if aid is None else aid),
@@ -304,12 +310,26 @@ def convert_file(input_file, options):
         parse_subtitle_stream_id(input_file, options.sid), options.font
     )
     v_tmp_file = TemporaryFile()
-    v_proc = subprocess.Popen(v_cmd, stdout=v_tmp_file, stderr=subprocess.DEVNULL)
+    v_proc = subprocess.Popen(
+        v_cmd,
+        stdout=v_tmp_file,
+        stderr=subprocess.PIPE,
+        errors="backslashreplace"
+    )
     v_proc.wait()
+    if v_proc.returncode != 0:
+        raise ExternalCommandFailedError(process_error_message(v_proc))
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
-    a_proc = subprocess.Popen(a_cmd, stdout=a_tmp_file, stderr=subprocess.DEVNULL)
+    a_proc = subprocess.Popen(
+        a_cmd,
+        stdout=a_tmp_file,
+        stderr=subprocess.PIPE,
+        errors="backslashreplace"
+    )
     a_proc.wait()
+    if a_proc.returncode != 0:
+        raise ExternalCommandFailedError(process_error_message(a_proc))
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file)/ 10)))
     header = create_header(
@@ -348,6 +368,14 @@ def check_external_command(command, expected_output, expected_exit_code):
         raise ExternalCommandFailedError(command)
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
+
+def process_error_message(process):
+    return "\n".join([
+        "The command:",
+        process.args if isinstance(process.args, str) else " ".join(process.args),
+        "failed with exit code %d and error message:" % process.returncode,
+        process.stderr.read(),
+    ])
 
 def main():
     import argparse
