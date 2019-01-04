@@ -167,7 +167,12 @@ def create_screenshot(file_object, seconds):
 def create_thumbnail(image_bytes):
     image = Image.open(BytesIO(image_bytes))
     if image.width != SCREEN_WIDTH or image.height != SCREEN_HEIGHT:
-        image = image.resize((SCREEN_WIDTH, SCREEN_HEIGHT))
+        thumbnail = image.copy()
+        thumbnail.thumbnail((SCREEN_WIDTH, SCREEN_HEIGHT))
+        image = Image.new(image.mode, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        left = int((image.width - thumbnail.width) / 2)
+        top = int((image.height - thumbnail.height) / 2)
+        image.paste(thumbnail, (left, top))
     image_data = image.getdata()
     thumbnail_data = []
     for i in range(image.height):
