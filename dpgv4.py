@@ -307,8 +307,40 @@ def parse_subtitle_stream_id(input_file, input_sid):
 def file_size(file_object):
     return os.stat(file_object.fileno()).st_size
 
+def read_progress(label, process):
+
+    def parse_progress_current(line):
+        return parse_progress_line("time=", line)
+
+    def parse_progress_total(line):
+        return parse_progress_line(r"Duration:\s+", line)
+
+    def parse_progress_line(prefix, line):
+        regexp = prefix + r"(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2}.\d{2})"
+        match = re.search(regexp, line)
+        if not match:
+            return None
+        return (
+            int(match.group("hours")) * 3600
+            + int(match.group("minutes")) * 60
+            + float(match.group("seconds"))
+        )
+
+    progress_total = None
+    progress_percent_previous = 0
+    for line in process.stderr:
+        if progress_total is None:
+            progress_total = parse_progress_total(line)
+        progress_current = parse_progress_current(line)
+        if progress_total is None or progress_current is None:
+            continue
+        progress_percent_current = progress_current / progress_total * 100
+        if progress_percent_current - progress_percent_previous > 5:
+            progress_percent_previous = progress_percent_current
+            logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
+
 def convert_file(input_file, options):
-    logging.debug("reading input file: %s", quote(input_file))
+    logging.info("processing file: %s", quote(input_file))
     v_cmd = prepare_video_conversion_command(
         input_file,
         options.framerate, options.quality,
@@ -321,6 +353,7 @@ def convert_file(input_file, options):
         stderr=subprocess.PIPE,
         errors="backslashreplace"
     )
+    read_progress("video", v_proc)
     v_proc.wait()
     if v_proc.returncode != 0:
         raise ExternalCommandFailedError(process_error_message(v_proc))
@@ -332,6 +365,7 @@ def convert_file(input_file, options):
         stderr=subprocess.PIPE,
         errors="backslashreplace"
     )
+    read_progress("audio", a_proc)
     a_proc.wait()
     if a_proc.returncode != 0:
         raise ExternalCommandFailedError(process_error_message(a_proc))
