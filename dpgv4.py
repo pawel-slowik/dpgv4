@@ -391,6 +391,25 @@ def convert_file(input_file, options):
     outfile.close()
     logging.info("done: %s -> %s", quote(input_file), quote(output_file))
 
+def list_media_files(directory):
+    media_extensions = [
+        "avi",
+        "flv",
+        "m4v",
+        "mkv",
+        "mov",
+        "mp4",
+        "mpeg",
+        "mpg",
+        "ogm",
+        "webm",
+        "wmv",
+    ]
+    for dirpath, _, filenames in os.walk(directory):
+        for filename in filenames:
+            if os.path.splitext(filename)[1][1:].lower() in media_extensions:
+                yield os.path.join(dirpath, filename)
+
 def check_external_command(command, expected_output, expected_exit_code):
     try:
         process = subprocess.Popen(
@@ -422,7 +441,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Convert video files to DPG4 format used by MoonShell for Nintendo DS."
     )
-    parser.add_argument("files", nargs="+", help="input files")
+    parser.add_argument("files", nargs="+", help="input files and / or directories")
     parser.add_argument(
         "-v", action="store_true", dest="verbose", default=False,
         help="increase verbosity"
@@ -458,11 +477,15 @@ def main():
     check_external_command([FFPROBE, "-version"], b"^ffprobe version .*", 0)
     if args.framerate not in MPEG_SPEC_FRAMERATES:
         logging.warning("non standard framerate: %s, sync issues may occur", args.framerate)
-    for input_file in args.files:
-        if not os.path.exists(input_file):
-            raise ValueError("file doesn't exist: %s" % input_file)
-    for input_file in args.files:
-        convert_file(input_file, args)
+    for input_file_or_dir in args.files:
+        if not os.path.exists(input_file_or_dir):
+            raise ValueError("file or directory doesn't exist: %s" % input_file_or_dir)
+    for input_file_or_dir in args.files:
+        if os.path.isdir(input_file_or_dir):
+            for input_file in list_media_files(input_file_or_dir):
+                convert_file(input_file, args)
+        else:
+            convert_file(input_file, args)
 
 if __name__ == "__main__":
     main()
