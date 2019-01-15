@@ -341,7 +341,7 @@ def read_progress(label, process):
             progress_percent_previous = progress_percent_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
 
-def convert_file(input_file, options):
+def convert_file(input_file, output_file, options):
     logging.info("processing file: %s", quote(input_file))
     v_cmd = prepare_video_conversion_command(
         input_file,
@@ -380,7 +380,6 @@ def convert_file(input_file, options):
         file_size(v_tmp_file),
         len(gop)
     )
-    output_file = os.path.splitext(input_file)[0] + ".dpg"
     logging.debug("writing output file: %s", quote(output_file))
     v_tmp_file.seek(0)
     a_tmp_file.seek(0)
@@ -493,7 +492,8 @@ def main():
         if not os.path.exists(input_file_or_dir):
             raise ValueError("file or directory doesn't exist: %s" % input_file_or_dir)
     for input_file in list_input_files(args.files):
-        convert_file(input_file, args)
+        output_file = os.path.splitext(input_file)[0] + ".dpg"
+        convert_file(input_file, output_file, args)
 
 if __name__ == "__main__":
     main()
