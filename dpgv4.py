@@ -485,7 +485,7 @@ def main():
             for input_file in list_media_files(input_file_or_dir):
                 convert_file(input_file, args)
         else:
-            convert_file(input_file, args)
+            convert_file(input_file_or_dir, args)
 
 if __name__ == "__main__":
     main()
