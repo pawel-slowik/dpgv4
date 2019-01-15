@@ -412,6 +412,13 @@ def list_media_files(directory):
             if os.path.splitext(filename)[1][1:].lower() in media_extensions:
                 yield os.path.join(dirpath, filename)
 
+def list_input_files(inputs):
+    for inp in inputs:
+        if os.path.isdir(inp):
+            yield from list_media_files(inp)
+        else:
+            yield inp
+
 def check_external_command(command, expected_output, expected_exit_code):
     try:
         process = subprocess.Popen(
@@ -485,12 +492,8 @@ def main():
     for input_file_or_dir in args.files:
         if not os.path.exists(input_file_or_dir):
             raise ValueError("file or directory doesn't exist: %s" % input_file_or_dir)
-    for input_file_or_dir in args.files:
-        if os.path.isdir(input_file_or_dir):
-            for input_file in list_media_files(input_file_or_dir):
-                convert_file(input_file, args)
-        else:
-            convert_file(input_file_or_dir, args)
+    for input_file in list_input_files(args.files):
+        convert_file(input_file, args)
 
 if __name__ == "__main__":
     main()
