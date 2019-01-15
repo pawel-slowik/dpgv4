@@ -328,11 +328,13 @@ def read_progress(label, process):
 
     progress_total = None
     progress_percent_previous = 0
+    process.progress_stderr_skipped_lines = []
     for line in process.stderr:
         if progress_total is None:
             progress_total = parse_progress_total(line)
         progress_current = parse_progress_current(line)
         if progress_total is None or progress_current is None:
+            process.progress_stderr_skipped_lines.append(line)
             continue
         progress_percent_current = progress_current / progress_total * 100
         if progress_percent_current - progress_percent_previous > 5:
@@ -428,11 +430,14 @@ def check_external_command(command, expected_output, expected_exit_code):
         raise ExternalCommandFailedError(command)
 
 def process_error_message(process):
+    error_message = process.stderr.read()
+    if not error_message and hasattr(process, "progress_stderr_skipped_lines"):
+        error_message = "".join(process.progress_stderr_skipped_lines)
     return "\n".join([
         "The command:",
         process.args if isinstance(process.args, str) else " ".join(process.args),
         "failed with exit code %d and error message:" % process.returncode,
-        process.stderr.read(),
+        error_message,
     ])
 
 def main():
