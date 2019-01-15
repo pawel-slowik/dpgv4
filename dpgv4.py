@@ -412,11 +412,15 @@ def list_media_files(directory):
                 yield os.path.join(dirpath, filename)
 
 def list_input_files(inputs):
-    for inp in inputs:
-        if os.path.isdir(inp):
-            yield from list_media_files(inp)
-        else:
-            yield inp
+
+    def gen_input_files(inputs):
+        for inp in inputs:
+            if os.path.isdir(inp):
+                yield from list_media_files(inp)
+            else:
+                yield inp
+
+    return set(map(os.path.abspath, gen_input_files(inputs)))
 
 def check_external_command(command, expected_output, expected_exit_code):
     try:
