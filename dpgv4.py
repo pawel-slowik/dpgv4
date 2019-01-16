@@ -381,6 +381,8 @@ def convert_file(input_file, output_file, options):
         len(gop)
     )
     logging.debug("writing output file: %s", quote(output_file))
+    if not os.path.exists(os.path.dirname(output_file)):
+        os.makedirs(os.path.dirname(output_file))
     v_tmp_file.seek(0)
     a_tmp_file.seek(0)
     outfile = open(output_file, "wb")
@@ -422,7 +424,34 @@ def list_input_files(inputs):
 
     return set(map(os.path.abspath, gen_input_files(inputs)))
 
-def create_task_list(input_files):
+def create_task_list(input_files, output):
+    if output is not None:
+        if len(input_files) == 1:
+            single_input_file = input_files.copy().pop()
+            if output.endswith(".dpg"):
+                single_output_file = output
+            else:
+                single_output_file = os.path.join(
+                    output,
+                    os.path.basename(
+                        os.path.splitext(single_input_file)[0] + ".dpg"
+                    )
+                )
+            return [(single_input_file, single_output_file)]
+        common_input = os.path.commonpath(input_files)
+        return [
+            (
+                input_file,
+                os.path.join(
+                    output,
+                    os.path.relpath(
+                        os.path.splitext(input_file)[0] + ".dpg",
+                        common_input
+                    )
+                )
+            )
+            for input_file in input_files
+        ]
     return [
         (input_file, os.path.splitext(input_file)[0] + ".dpg")
         for input_file in input_files
@@ -463,6 +492,7 @@ def main():
         description="Convert video files to DPG4 format used by MoonShell for Nintendo DS."
     )
     parser.add_argument("files", nargs="+", help="input files and / or directories")
+    parser.add_argument("-o", dest="output", help="output file or directory")
     parser.add_argument(
         "-v", action="store_true", dest="verbose", default=False,
         help="increase verbosity"
@@ -501,7 +531,7 @@ def main():
     for input_file_or_dir in args.files:
         if not os.path.exists(input_file_or_dir):
             raise ValueError("file or directory doesn't exist: %s" % input_file_or_dir)
-    for input_file, output_file in create_task_list(list_input_files(args.files)):
+    for input_file, output_file in create_task_list(list_input_files(args.files), args.output):
         convert_file(input_file, output_file, args)
 
 if __name__ == "__main__":
