@@ -425,6 +425,10 @@ def list_input_files(inputs):
     return set(map(os.path.abspath, gen_input_files(inputs)))
 
 def create_task_list(input_files, output):
+
+    def output_filename(input_filename):
+        return os.path.splitext(input_filename)[0] + ".dpg"
+
     if output is not None:
         if len(input_files) == 1:
             single_input_file = input_files.copy().pop()
@@ -433,9 +437,7 @@ def create_task_list(input_files, output):
             else:
                 single_output_file = os.path.join(
                     output,
-                    os.path.basename(
-                        os.path.splitext(single_input_file)[0] + ".dpg"
-                    )
+                    os.path.basename(output_filename(single_input_file))
                 )
             return [(single_input_file, single_output_file)]
         common_input = os.path.commonpath(input_files)
@@ -444,16 +446,13 @@ def create_task_list(input_files, output):
                 input_file,
                 os.path.join(
                     output,
-                    os.path.relpath(
-                        os.path.splitext(input_file)[0] + ".dpg",
-                        common_input
-                    )
+                    os.path.relpath(output_filename(input_file), common_input)
                 )
             )
             for input_file in input_files
         ]
     return [
-        (input_file, os.path.splitext(input_file)[0] + ".dpg")
+        (input_file, output_filename(input_file))
         for input_file in input_files
     ]
 
