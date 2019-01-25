@@ -453,7 +453,7 @@ def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[T
                     os.path.basename(output_filename(single_input_file))
                 )
             return [(single_input_file, single_output_file)]
-        common_input = os.path.commonpath(input_files)
+        common_input = os.path.commonpath(list(input_files))
         return [
             (
                 input_file,
