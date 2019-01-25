@@ -187,7 +187,13 @@ def create_thumbnail(image_bytes: bytes) -> bytes:
         thumbnail_data.append(row)
     return b"".join(struct.pack("H" * len(row), *row) for row in thumbnail_data)
 
-def create_header(frame_count: int, framerate: float, audio_size: int, video_size: int, gop_size: int) -> bytes:
+def create_header(
+        frame_count: int,
+        framerate: float,
+        audio_size: int,
+        video_size: int,
+        gop_size: int
+    ) -> bytes:
     audio_start = 98356 # 52 header + 98304 thumbnail
     video_start = audio_start + audio_size
     video_end = video_start + video_size
@@ -208,7 +214,13 @@ def create_header(frame_count: int, framerate: float, audio_size: int, video_siz
     ]
     return b"".join([struct.pack(f, v) for (f, v) in header_pack_values])
 
-def prepare_video_conversion_command(input_file: str, framerate: float, quality: int, sid: Optional[int], font: Optional[str]) -> Sequence[str]:
+def prepare_video_conversion_command(
+        input_file: str,
+        framerate: float,
+        quality: int,
+        sid: Optional[int],
+        font: Optional[str]
+    ) -> Sequence[str]:
     width, height = calculate_dimensions(input_file)
     v_cmd = [
         FFMPEG,
@@ -457,7 +469,11 @@ def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[T
         for input_file in input_files
     ]
 
-def check_external_command(command: Sequence[str], expected_output: bytes, expected_exit_code: int) -> None:
+def check_external_command(
+        command: Sequence[str],
+        expected_output: bytes,
+        expected_exit_code: int
+    ) -> None:
     try:
         process = subprocess.Popen(
             command,
