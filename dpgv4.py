@@ -13,6 +13,7 @@ from io import BytesIO
 from shutil import copyfileobj
 from shlex import quote
 from enum import Enum
+from typing import Sequence, Iterable, Set, IO, Dict, Tuple, Optional, Any
 from PIL import Image
 
 FFMPEG = "ffmpeg"
@@ -20,7 +21,7 @@ FFPROBE = "ffprobe"
 
 # For details see docs/framerates.md.
 MPEG_SPEC_FRAMERATES = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
-MPEG_UNOFFICIAL_FRAMERATES = [5, 10, 12, 15]
+MPEG_UNOFFICIAL_FRAMERATES = [float(5), 10, 12, 15]
 MPEG_FRAMERATES = MPEG_SPEC_FRAMERATES + MPEG_UNOFFICIAL_FRAMERATES
 
 SCREEN_WIDTH = 256
@@ -52,7 +53,7 @@ class ExternalCommandNotFoundError(ExternalCommandError):
 class ExternalCommandFailedError(ExternalCommandError):
     pass
 
-def get_aspect_ratio(filename):
+def get_aspect_ratio(filename: str) -> Optional[float]:
     cmd = [
         FFPROBE,
         "-print_format", "json",
@@ -71,7 +72,7 @@ def get_aspect_ratio(filename):
         return None
     return width / height
 
-def get_duration(filename):
+def get_duration(filename: str) -> float:
     cmd = [
         FFPROBE,
         "-print_format", "json",
@@ -82,7 +83,7 @@ def get_duration(filename):
     stream_info = json.loads(output)["streams"][0]
     return float(stream_info["duration"])
 
-def count_video_frames(file_object):
+def count_video_frames(file_object: IO[bytes]) -> int:
     file_object.seek(0)
     cmd = [
         FFPROBE,
@@ -94,7 +95,7 @@ def count_video_frames(file_object):
     stream_info = json.loads(output)["streams"][0]
     return int(stream_info["nb_read_frames"])
 
-def calculate_dimensions(input_file):
+def calculate_dimensions(input_file: str) -> Tuple[int, int]:
     debug_msg = "target video dimensions: width %d, height %d, original aspect ratio %s"
     input_aspect_ratio = get_aspect_ratio(input_file)
     if input_aspect_ratio is None:
@@ -110,9 +111,9 @@ def calculate_dimensions(input_file):
     logging.debug(debug_msg, width, height, input_aspect_ratio)
     return width, height
 
-def create_gop(mpeg_file_object):
+def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
 
-    def row_to_frame(row):
+    def row_to_frame(row: Iterable[str]) -> Dict[str, str]:
         frame = {}
         for item in row:
             if item == "frame":
@@ -151,7 +152,7 @@ def create_gop(mpeg_file_object):
             raise ExternalCommandFailedError(process_error_message(process))
     return gop
 
-def create_screenshot(file_object, seconds):
+def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
     file_object.seek(0)
     shot_cmd = [
         FFMPEG,
@@ -164,7 +165,7 @@ def create_screenshot(file_object, seconds):
     ]
     return subprocess.check_output(shot_cmd, stderr=subprocess.DEVNULL, stdin=file_object)
 
-def create_thumbnail(image_bytes):
+def create_thumbnail(image_bytes: bytes) -> bytes:
     image = Image.open(BytesIO(image_bytes))
     if image.width != SCREEN_WIDTH or image.height != SCREEN_HEIGHT:
         thumbnail = image.copy()
@@ -186,7 +187,7 @@ def create_thumbnail(image_bytes):
         thumbnail_data.append(row)
     return b"".join(struct.pack("H" * len(row), *row) for row in thumbnail_data)
 
-def create_header(frame_count, framerate, audio_size, video_size, gop_size):
+def create_header(frame_count: int, framerate: float, audio_size: int, video_size: int, gop_size: int) -> bytes:
     audio_start = 98356 # 52 header + 98304 thumbnail
     video_start = audio_start + audio_size
     video_end = video_start + video_size
@@ -207,7 +208,7 @@ def create_header(frame_count, framerate, audio_size, video_size, gop_size):
     ]
     return b"".join([struct.pack(f, v) for (f, v) in header_pack_values])
 
-def prepare_video_conversion_command(input_file, framerate, quality, sid, font):
+def prepare_video_conversion_command(input_file: str, framerate: float, quality: int, sid: Optional[int], font: Optional[str]) -> Sequence[str]:
     width, height = calculate_dimensions(input_file)
     v_cmd = [
         FFMPEG,
@@ -228,7 +229,7 @@ def prepare_video_conversion_command(input_file, framerate, quality, sid, font):
     logging.debug("video encoder command: %s", " ".join(map(quote, v_cmd)))
     return v_cmd
 
-def prepare_audio_conversion_command(input_file, aid):
+def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Sequence[str]:
     a_cmd = [
         FFMPEG,
         "-hide_banner",
@@ -244,7 +245,7 @@ def prepare_audio_conversion_command(input_file, aid):
     logging.debug("audio encoder command: %s", " ".join(map(quote, a_cmd)))
     return a_cmd
 
-def video_quality_options():
+def video_quality_options() -> Dict[int, Iterable[str]]:
     # libavcodec options shared between both quality settings
     lavcopts_base = [
         "-mbd", "2",
@@ -271,9 +272,9 @@ def video_quality_options():
         ],
     }
 
-def subtitle_options(input_file, sid, font):
+def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -> Iterable[str]:
 
-    def quote_sub_filename(filename):
+    def quote_sub_filename(filename: str) -> str:
         # the following characters need to be escaped because they have special meaning in the
         # filtergraph syntax: https://ffmpeg.org/ffmpeg-filters.html
         escape_chars = ["[", "]", "=", ";", ","]
@@ -289,7 +290,7 @@ def subtitle_options(input_file, sid, font):
         filter_options.append("force_style=\"FontName=%s\"" % font)
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
 
-def count_subtitle_streams(input_file):
+def count_subtitle_streams(input_file: str) -> int:
     cmd = [
         FFPROBE,
         "-print_format", "json",
@@ -299,23 +300,23 @@ def count_subtitle_streams(input_file):
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
     return len(json.loads(output)["streams"])
 
-def parse_subtitle_stream_id(input_file, input_sid):
+def parse_subtitle_stream_id(input_file: str, input_sid: Optional[int]) -> Optional[int]:
     if input_sid is None:
         return 0 if count_subtitle_streams(input_file) else None
     return input_sid if input_sid >= 0 else None
 
-def file_size(file_object):
+def file_size(file_object: IO[bytes]) -> int:
     return os.stat(file_object.fileno()).st_size
 
-def read_progress(label, process):
+def read_progress(label: str, process: subprocess.Popen) -> None:
 
-    def parse_progress_current(line):
+    def parse_progress_current(line: str) -> Optional[float]:
         return parse_progress_line("time=", line)
 
-    def parse_progress_total(line):
+    def parse_progress_total(line: str) -> Optional[float]:
         return parse_progress_line(r"Duration:\s+", line)
 
-    def parse_progress_line(prefix, line):
+    def parse_progress_line(prefix: str, line: str) -> Optional[float]:
         regexp = prefix + r"(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2}.\d{2})"
         match = re.search(regexp, line)
         if not match:
@@ -327,7 +328,7 @@ def read_progress(label, process):
         )
 
     progress_total = None
-    progress_percent_previous = 0
+    progress_percent_previous = float(0)
     process.progress_stderr_skipped_lines = []
     for line in process.stderr:
         if progress_total is None:
@@ -341,7 +342,7 @@ def read_progress(label, process):
             progress_percent_previous = progress_percent_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
 
-def convert_file(input_file, output_file, options):
+def convert_file(input_file: str, output_file: str, options: Any) -> None:
     logging.info("processing file: %s", quote(input_file))
     v_cmd = prepare_video_conversion_command(
         input_file,
@@ -394,7 +395,7 @@ def convert_file(input_file, output_file, options):
     outfile.close()
     logging.info("done: %s -> %s", quote(input_file), quote(output_file))
 
-def list_media_files(directory):
+def list_media_files(directory: str) -> Iterable[str]:
     media_extensions = [
         "avi",
         "flv",
@@ -413,9 +414,9 @@ def list_media_files(directory):
             if os.path.splitext(filename)[1][1:].lower() in media_extensions:
                 yield os.path.join(dirpath, filename)
 
-def list_input_files(inputs):
+def list_input_files(inputs: list) -> Set[str]:
 
-    def gen_input_files(inputs):
+    def gen_input_files(inputs: Iterable[str]) -> Iterable[str]:
         for inp in inputs:
             if os.path.isdir(inp):
                 yield from list_media_files(inp)
@@ -424,9 +425,9 @@ def list_input_files(inputs):
 
     return set(map(os.path.abspath, gen_input_files(inputs)))
 
-def create_task_list(input_files, output):
+def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[Tuple[str, str]]:
 
-    def output_filename(input_filename):
+    def output_filename(input_filename: str) -> str:
         return os.path.splitext(input_filename)[0] + ".dpg"
 
     if output is not None:
@@ -456,7 +457,7 @@ def create_task_list(input_files, output):
         for input_file in input_files
     ]
 
-def check_external_command(command, expected_output, expected_exit_code):
+def check_external_command(command: Sequence[str], expected_output: bytes, expected_exit_code: int) -> None:
     try:
         process = subprocess.Popen(
             command,
@@ -473,7 +474,7 @@ def check_external_command(command, expected_output, expected_exit_code):
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
 
-def process_error_message(process):
+def process_error_message(process: subprocess.Popen) -> str:
     error_message = process.stderr.read()
     if not error_message and hasattr(process, "progress_stderr_skipped_lines"):
         error_message = "".join(process.progress_stderr_skipped_lines)
@@ -484,7 +485,7 @@ def process_error_message(process):
         error_message,
     ])
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(

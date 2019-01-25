@@ -4,17 +4,17 @@ from .util import sample_filename
 
 class TestSubtitles(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.inp = sample_filename("Test Image - 2141.mp4")
 
-    def test_count_zero(self):
+    def test_count_zero(self) -> None:
         self.assertEqual(count_subtitle_streams(self.inp), 0)
 
-    def test_parse_none(self):
+    def test_parse_none(self) -> None:
         self.assertIsNone(parse_subtitle_stream_id(self.inp, None))
 
-    def test_parse_zero(self):
+    def test_parse_zero(self) -> None:
         self.assertEqual(parse_subtitle_stream_id(self.inp, 0), 0)
 
-    def test_parse_negative(self):
+    def test_parse_negative(self) -> None:
         self.assertIsNone(parse_subtitle_stream_id(self.inp, -1))

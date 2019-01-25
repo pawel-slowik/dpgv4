@@ -4,6 +4,6 @@ from .util import sample_filename
 
 class TestDuration(unittest.TestCase):
 
-    def test_duration(self):
+    def test_duration(self) -> None:
         input_filename = sample_filename("Test Image - 2141.mp4")
         self.assertEqual(get_duration(input_filename), 30.03)
