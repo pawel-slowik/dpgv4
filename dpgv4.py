@@ -290,7 +290,8 @@ def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -
         # the following characters need to be escaped because they have special meaning in the
         # filtergraph syntax: https://ffmpeg.org/ffmpeg-filters.html
         escape_chars = ["[", "]", "=", ";", ","]
-        return filename.translate(str.maketrans({char: "\\" + char for char in escape_chars}))
+        translation_map = str.maketrans({char: "\\" + char for char in escape_chars})
+        return filename.translate(translation_map)
 
     if sid is None:
         return []
