@@ -163,7 +163,8 @@ def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
         "-c:v", "bmp",
         "-",
     ]
-    return subprocess.check_output(shot_cmd, stderr=subprocess.DEVNULL, stdin=file_object)
+    output = subprocess.check_output(shot_cmd, stderr=subprocess.DEVNULL, stdin=file_object)
+    return output # type: ignore
 
 def create_thumbnail(image_bytes: bytes) -> bytes:
     image = Image.open(BytesIO(image_bytes))
