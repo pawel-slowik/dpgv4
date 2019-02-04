@@ -322,7 +322,7 @@ def parse_subtitle_stream_id(input_file: str, input_sid: Optional[int]) -> Optio
 def file_size(file_object: IO[bytes]) -> int:
     return os.stat(file_object.fileno()).st_size
 
-def read_progress(label: str, process: subprocess.Popen) -> None:
+def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
 
     def parse_progress_current(line: str) -> Optional[float]:
         return parse_progress_line("time=", line)
@@ -343,18 +343,19 @@ def read_progress(label: str, process: subprocess.Popen) -> None:
 
     progress_total = None
     progress_percent_previous = float(0)
-    process.progress_stderr_skipped_lines = []
+    progress_stderr_skipped_lines = []
     for line in process.stderr:
         if progress_total is None:
             progress_total = parse_progress_total(line)
         progress_current = parse_progress_current(line)
         if progress_total is None or progress_current is None:
-            process.progress_stderr_skipped_lines.append(line)
+            progress_stderr_skipped_lines.append(line)
             continue
         progress_percent_current = progress_current / progress_total * 100
         if progress_percent_current - progress_percent_previous > 5:
             progress_percent_previous = progress_percent_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
+    return "".join(progress_stderr_skipped_lines) if progress_stderr_skipped_lines else None
 
 def convert_file(input_file: str, output_file: str, options: Any) -> None:
     logging.info("processing file: %s", quote(input_file))
@@ -370,10 +371,10 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         stderr=subprocess.PIPE,
         errors="backslashreplace"
     )
-    read_progress("video", v_proc)
+    v_error_message = read_progress("video", v_proc)
     v_proc.wait()
     if v_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(v_proc))
+        raise ExternalCommandFailedError(process_error_message(v_proc, v_error_message))
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
     a_proc = subprocess.Popen(
@@ -382,10 +383,10 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         stderr=subprocess.PIPE,
         errors="backslashreplace"
     )
-    read_progress("audio", a_proc)
+    a_error_message = read_progress("audio", a_proc)
     a_proc.wait()
     if a_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(a_proc))
+        raise ExternalCommandFailedError(process_error_message(a_proc, a_error_message))
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file)/ 10)))
     header = create_header(
@@ -492,10 +493,9 @@ def check_external_command(
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
 
-def process_error_message(process: subprocess.Popen) -> str:
-    error_message = process.stderr.read()
-    if not error_message and hasattr(process, "progress_stderr_skipped_lines"):
-        error_message = "".join(process.progress_stderr_skipped_lines)
+def process_error_message(process: subprocess.Popen, error_message: Optional[str] = None) -> str:
+    if error_message is None:
+        error_message = process.stderr.read()
     return "\n".join([
         "The command:",
         process.args if isinstance(process.args, str) else " ".join(process.args),
