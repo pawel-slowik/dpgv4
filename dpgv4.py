@@ -494,11 +494,24 @@ def check_external_command(
         raise ExternalCommandFailedError(command)
 
 def process_error_message(process: subprocess.Popen, error_message: Optional[str] = None) -> str:
+
+    def args_str(args: Any) -> str:
+        if isinstance(args, str):
+            return args
+        if isinstance(args, bytes):
+            return str(args)
+        if isinstance(args, Sequence) and args:
+            if isinstance(args[0], str):
+                return " ".join(args)
+            if isinstance(args[0], bytes):
+                return str(b" ".join(args))
+        return repr(args)
+
     if error_message is None:
         error_message = process.stderr.read()
     return "\n".join([
         "The command:",
-        process.args if isinstance(process.args, str) else " ".join(process.args),
+        args_str(process.args),
         "failed with exit code %d and error message:" % process.returncode,
         error_message,
     ])
