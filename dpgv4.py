@@ -313,7 +313,7 @@ def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -
         "stream_index=%d" % sub_index,
     ]
     if font is not None:
-        filter_options.append("force_style=\"FontName=%s\"" % font)
+        filter_options.append("force_style='FontName=%s'" % font)
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
 
 def count_subtitle_streams(input_file: str) -> int:
