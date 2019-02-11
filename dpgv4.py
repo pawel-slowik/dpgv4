@@ -220,7 +220,8 @@ def prepare_video_conversion_command(
         framerate: float,
         quality: int,
         sid: Optional[int],
-        font: Optional[str]
+        font_name: Optional[str],
+        font_size: Optional[int],
     ) -> Sequence[str]:
     width, height = calculate_dimensions(input_file)
     v_cmd = [
@@ -237,7 +238,7 @@ def prepare_video_conversion_command(
     if framerate not in MPEG_SPEC_FRAMERATES:
         v_cmd += ["-strict", "unofficial"]
     v_cmd += video_quality_options()[quality]
-    v_cmd += subtitle_options(input_file, sid, font)
+    v_cmd += subtitle_options(input_file, sid, font_name, font_size)
     v_cmd.append("-")
     logging.debug("video encoder command: %s", " ".join(map(quote, v_cmd)))
     return v_cmd
@@ -285,7 +286,12 @@ def video_quality_options() -> Dict[int, Iterable[str]]:
         ],
     }
 
-def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -> Iterable[str]:
+def subtitle_options(
+        input_file: str,
+        sid: Optional[int],
+        font_name: Optional[str],
+        font_size: Optional[int] = None,
+    ) -> Iterable[str]:
 
     def quote_sub_filename(filename: str) -> str:
         # the following characters need to be escaped because they have special meaning in the
@@ -312,8 +318,13 @@ def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -
         "filename=%s" % quote_sub_filename(sub_file),
         "stream_index=%d" % sub_index,
     ]
-    if font is not None:
-        filter_options.append("force_style='FontName=%s'" % font)
+    style = []
+    if font_name is not None:
+        style.append("FontName=%s" % font_name)
+    if font_size is not None:
+        style.append("FontSize=%d" % font_size)
+    if style:
+        filter_options.append("force_style='%s'" % ",".join(style))
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
 
 def count_subtitle_streams(input_file: str) -> int:
@@ -381,7 +392,7 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     v_cmd = prepare_video_conversion_command(
         input_file,
         options.framerate, options.quality,
-        parse_subtitle_stream_id(input_file, options.sid), options.font
+        parse_subtitle_stream_id(input_file, options.sid), options.font_name, options.font_size
     )
     v_tmp_file = TemporaryFile()
     v_proc = subprocess.Popen(
@@ -567,7 +578,11 @@ def main() -> None:
         help="use subtitle stream SID (default: first available stream, -1 to disable)"
     )
     subtitle_group.add_argument(
-        "-f", dest="font", help="font for subtitles (libass style FontName)"
+        "-f", dest="font_name", help="font name (libass style FontName)"
+    )
+    subtitle_group.add_argument(
+        "-p", type=int, dest="font_size", default=22,
+        help="font size (libass style FontSize, default: 22)"
     )
     args = parser.parse_args()
     logging.basicConfig(
