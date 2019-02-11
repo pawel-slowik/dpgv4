@@ -296,9 +296,21 @@ def subtitle_options(input_file: str, sid: Optional[int], font: Optional[str]) -
 
     if sid is None:
         return []
+    external_sub_file = find_sub_file(input_file)
+    if external_sub_file:
+        external_sub_count = count_subtitle_streams(external_sub_file)
+        if sid < external_sub_count:
+            sub_file = external_sub_file
+            sub_index = sid
+        else:
+            sub_file = input_file
+            sub_index = sid - external_sub_count
+    else:
+        sub_file = input_file
+        sub_index = sid
     filter_options = [
-        "filename=%s" % quote_sub_filename(input_file),
-        "stream_index=%d" % sid,
+        "filename=%s" % quote_sub_filename(sub_file),
+        "stream_index=%d" % sub_index,
     ]
     if font is not None:
         filter_options.append("force_style=\"FontName=%s\"" % font)
@@ -316,8 +328,15 @@ def count_subtitle_streams(input_file: str) -> int:
 
 def parse_subtitle_stream_id(input_file: str, input_sid: Optional[int]) -> Optional[int]:
     if input_sid is None:
-        return 0 if count_subtitle_streams(input_file) else None
+        return 0 if count_subtitle_streams(input_file) or find_sub_file(input_file) else None
     return input_sid if input_sid >= 0 else None
+
+def find_sub_file(filename: str) -> Optional[str]:
+    basename = os.path.splitext(filename)[0]
+    for extension in [".ass", ".srt", ".ssa", ".sub"]:
+        if os.path.exists(basename + extension):
+            return basename + extension
+    return None
 
 def file_size(file_object: IO[bytes]) -> int:
     return os.stat(file_object.fileno()).st_size
