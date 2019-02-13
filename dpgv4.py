@@ -13,7 +13,7 @@ from io import BytesIO
 from shutil import copyfileobj
 from shlex import quote
 from enum import Enum
-from typing import Sequence, Iterable, Set, IO, Dict, Tuple, Optional, Any
+from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Optional, Any
 from PIL import Image
 
 FFMPEG = "ffmpeg"
@@ -113,7 +113,7 @@ def calculate_dimensions(input_file: str) -> Tuple[int, int]:
 
 def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
 
-    def row_to_frame(row: Iterable[str]) -> Dict[str, str]:
+    def row_to_frame(row: Iterable[str]) -> Mapping[str, str]:
         frame = {}
         for item in row:
             if item == "frame":
@@ -259,7 +259,7 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
     logging.debug("audio encoder command: %s", " ".join(map(quote, a_cmd)))
     return a_cmd
 
-def video_quality_options() -> Dict[int, Iterable[str]]:
+def video_quality_options() -> Mapping[int, Iterable[str]]:
     # libavcodec options shared between both quality settings
     lavcopts_base = [
         "-mbd", "2",
