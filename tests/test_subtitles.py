@@ -22,6 +22,14 @@ class TestSubtitles(unittest.TestCase):
     def test_parse_external(self) -> None:
         self.assertEqual(parse_subtitle_stream_id(sample_filename("World - 2.mp4"), None), 0)
 
+    def test_parse_internal_by_language(self) -> None:
+        input_filename = sample_filename("World - 2 (with subtitles).mkv")
+        self.assertEqual(parse_subtitle_stream_id(input_filename, "eng"), 0)
+
+    def test_parse_internal_by_title(self) -> None:
+        input_filename = sample_filename("World - 2 (with subtitles).mkv")
+        self.assertEqual(parse_subtitle_stream_id(input_filename, "English"), 0)
+
     def test_options_no_external_none(self) -> None:
         input_filename = sample_filename("Test Image - 2141.mp4")
         self.assertEqual(subtitle_options(input_filename, None, None), [])

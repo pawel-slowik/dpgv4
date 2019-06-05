@@ -12,8 +12,9 @@ from tempfile import TemporaryFile
 from io import BytesIO
 from shutil import copyfileobj
 from shlex import quote
+from operator import itemgetter
 from enum import Enum
-from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Optional, Any
+from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Union, Optional, Any
 from PIL import Image
 
 FFMPEG = "ffmpeg"
@@ -337,10 +338,47 @@ def count_subtitle_streams(input_file: str) -> int:
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
     return len(json.loads(output)["streams"])
 
-def parse_subtitle_stream_id(input_file: str, input_sid: Optional[int]) -> Optional[int]:
+def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) -> Optional[int]:
     if input_sid is None:
         return 0 if count_subtitle_streams(input_file) or find_sub_file(input_file) else None
-    return input_sid if input_sid >= 0 else None
+    try:
+        stream_index = int(input_sid)
+    except ValueError:
+        pass
+    else:
+        return stream_index if stream_index >= 0 else None
+    language = str(input_sid)
+    if find_sub_file(input_file):
+        # external subtitles don't have the necessary metadata
+        raise ValueError("matching external subtitles to a language code is not supported")
+    for index, stream in enumerate(sorted(
+            list_subtitle_streams(input_file),
+            key=itemgetter("index")
+    )):
+        if stream_matches_language(stream, language):
+            return index
+    raise ValueError("no subtitles found for language: %s" % language)
+
+def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
+    cmd = [
+        FFPROBE,
+        "-print_format", "json",
+        "-show_streams", "-select_streams", "s",
+        input_file,
+    ]
+    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    return json.loads(output)["streams"] # type: ignore
+
+def stream_matches_language(stream: Mapping, language: str) -> bool:
+    language = language.lower()
+    try:
+        tags = stream["tags"]
+        return bool(
+            tags["language"].lower() == language
+            or tags["title"].lower() == language
+        )
+    except KeyError:
+        return False
 
 def find_sub_file(filename: str) -> Optional[str]:
     basename = os.path.splitext(filename)[0]
@@ -574,8 +612,11 @@ def main() -> None:
     )
     subtitle_group = parser.add_argument_group("subtitle options")
     subtitle_group.add_argument(
-        "-s", type=int, dest="sid", metavar="SID",
-        help="use subtitle stream SID (default: first available stream, -1 to disable)"
+        "-s", dest="sid", metavar="SID",
+        help="""
+            use subtitle stream SID, specify language code or stream index
+            (default: first available stream, -1 to disable)
+        """
     )
     subtitle_group.add_argument(
         "-f", dest="font_name", help="font name (libass style FontName)"
