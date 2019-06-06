@@ -1,5 +1,5 @@
 import unittest
-from dpgv4 import count_subtitle_streams, parse_subtitle_stream_id, subtitle_options
+from dpgv4 import list_subtitle_streams, parse_subtitle_stream_id, subtitle_options
 from .util import sample_filename
 
 class TestSubtitles(unittest.TestCase):
@@ -8,7 +8,7 @@ class TestSubtitles(unittest.TestCase):
         self.inp = sample_filename("Test Image - 2141.mp4")
 
     def test_count_zero(self) -> None:
-        self.assertEqual(count_subtitle_streams(self.inp), 0)
+        self.assertEqual(len(tuple(list_subtitle_streams(self.inp))), 0)
 
     def test_parse_none(self) -> None:
         self.assertIsNone(parse_subtitle_stream_id(self.inp, None))

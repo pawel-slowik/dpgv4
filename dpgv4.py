@@ -307,7 +307,7 @@ def subtitle_options(
         return []
     external_sub_file = find_sub_file(input_file)
     if external_sub_file:
-        external_sub_count = count_subtitle_streams(external_sub_file)
+        external_sub_count = len(tuple(list_subtitle_streams(external_sub_file)))
         if sid < external_sub_count:
             sub_file = external_sub_file
             sub_index = sid
@@ -330,19 +330,11 @@ def subtitle_options(
         filter_options.append("force_style='%s'" % ",".join(style))
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
 
-def count_subtitle_streams(input_file: str) -> int:
-    cmd = [
-        FFPROBE,
-        "-print_format", "json",
-        "-show_streams", "-select_streams", "s",
-        input_file,
-    ]
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-    return len(json.loads(output)["streams"])
-
 def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) -> Optional[int]:
+    subtitle_streams = tuple(list_subtitle_streams(input_file))
+    external_sub_file = find_sub_file(input_file)
     if input_sid is None:
-        return 0 if count_subtitle_streams(input_file) or find_sub_file(input_file) else None
+        return 0 if subtitle_streams or external_sub_file else None
     try:
         stream_index = int(input_sid)
     except ValueError:
@@ -350,13 +342,10 @@ def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) 
     else:
         return stream_index if stream_index >= 0 else None
     language = str(input_sid)
-    if find_sub_file(input_file):
+    if external_sub_file:
         # external subtitles don't have the necessary metadata
         raise ValueError("matching external subtitles to a language code is not supported")
-    for index, stream in enumerate(sorted(
-            list_subtitle_streams(input_file),
-            key=itemgetter("index")
-    )):
+    for index, stream in enumerate(sorted(subtitle_streams, key=itemgetter("index"))):
         if stream_matches_language(stream, language):
             return index
     raise ValueError("no subtitles found for language: %s" % language)
