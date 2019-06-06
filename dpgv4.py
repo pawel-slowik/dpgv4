@@ -77,12 +77,14 @@ def get_duration(filename: str) -> float:
     cmd = [
         FFPROBE,
         "-print_format", "json",
-        "-show_entries", "stream=duration", "-select_streams", "v",
+        "-show_entries", "stream=duration",
         filename
     ]
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-    stream_info = json.loads(output)["streams"][0]
-    return float(stream_info["duration"])
+    for stream_info in json.loads(output)["streams"]:
+        if "duration" in stream_info:
+            return float(stream_info["duration"])
+    raise ValueError("can't read duration for file: %s" % filename)
 
 def count_video_frames(file_object: IO[bytes]) -> int:
     file_object.seek(0)
