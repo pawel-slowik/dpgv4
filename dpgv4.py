@@ -7,6 +7,7 @@ import struct
 import subprocess
 import json
 import csv
+import time
 import logging
 from tempfile import TemporaryFile
 from io import BytesIO
@@ -401,7 +402,7 @@ def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
         )
 
     progress_total = None
-    progress_percent_previous = float(0)
+    progress_time_previous = time.monotonic()
     progress_stderr_skipped_lines = []
     for line in process.stderr:
         if progress_total is None:
@@ -411,8 +412,9 @@ def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
             progress_stderr_skipped_lines.append(line)
             continue
         progress_percent_current = progress_current / progress_total * 100
-        if progress_percent_current - progress_percent_previous > 5:
-            progress_percent_previous = progress_percent_current
+        progress_time_current = time.monotonic()
+        if progress_time_current - progress_time_previous > 5:
+            progress_time_previous = progress_time_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
     return "".join(progress_stderr_skipped_lines) if progress_stderr_skipped_lines else None
 
