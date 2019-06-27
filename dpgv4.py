@@ -8,6 +8,7 @@ import subprocess
 import json
 import csv
 import time
+import codecs
 import logging
 from tempfile import TemporaryFile
 from io import BytesIO
@@ -62,6 +63,7 @@ def get_aspect_ratio(filename: str) -> Optional[float]:
         filename
     ]
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    output = output.decode("utf-8")
     stream_info = json.loads(output)["streams"][0]
     if "display_aspect_ratio" not in stream_info:
         return None
@@ -79,6 +81,7 @@ def get_duration(filename: str) -> float:
         filename
     ]
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    output = output.decode("utf-8")
     for stream_info in json.loads(output)["streams"]:
         if "duration" in stream_info:
             return float(stream_info["duration"])
@@ -91,6 +94,7 @@ def count_video_frames(file_object: IO[bytes]) -> int:
         "-",
     ]
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, stdin=file_object)
+    output = output.decode("utf-8")
     stream_info = json.loads(output)["streams"][0]
     return int(stream_info["nb_read_frames"])
 
@@ -352,6 +356,7 @@ def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
         input_file,
     ]
     output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+    output = output.decode("utf-8")
     return json.loads(output)["streams"] # type: ignore
 
 def stream_matches_language(stream: Mapping, language: str) -> bool:
@@ -397,7 +402,8 @@ def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
     progress_total = None
     progress_time_previous = time.monotonic()
     progress_stderr_skipped_lines = []
-    for line in process.stderr:
+    reader_factory = codecs.getreader("utf-8")
+    for line in reader_factory(process.stderr, errors="backslashreplace"):
         if progress_total is None:
             progress_total = parse_progress_total(line)
         progress_current = parse_progress_current(line)
@@ -423,7 +429,6 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         v_cmd,
         stdout=v_tmp_file,
         stderr=subprocess.PIPE,
-        errors="backslashreplace"
     )
     v_error_message = read_progress("video", v_proc)
     v_proc.wait()
@@ -435,7 +440,6 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         a_cmd,
         stdout=a_tmp_file,
         stderr=subprocess.PIPE,
-        errors="backslashreplace"
     )
     a_error_message = read_progress("audio", a_proc)
     a_proc.wait()
