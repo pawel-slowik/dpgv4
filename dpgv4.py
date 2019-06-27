@@ -20,7 +20,7 @@ from PIL import Image
 
 FFMPEG = "ffmpeg"
 FFPROBE = "ffprobe"
-FFPROBE_JSON = [FFPROBE, "-print_format", "json"]
+FFPROBE_JSON = [FFPROBE, "-print_format", "json=sv=replace:svr=\uFFFD"]
 
 # For details see docs/framerates.md.
 MPEG_SPEC_FRAMERATES = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
