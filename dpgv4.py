@@ -20,6 +20,7 @@ from PIL import Image
 
 FFMPEG = "ffmpeg"
 FFPROBE = "ffprobe"
+FFPROBE_JSON = [FFPROBE, "-print_format", "json"]
 
 # For details see docs/framerates.md.
 MPEG_SPEC_FRAMERATES = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
@@ -56,9 +57,7 @@ class ExternalCommandFailedError(ExternalCommandError):
     pass
 
 def get_aspect_ratio(filename: str) -> Optional[float]:
-    cmd = [
-        FFPROBE,
-        "-print_format", "json",
+    cmd = FFPROBE_JSON + [
         "-show_streams", "-select_streams", "v",
         filename
     ]
@@ -75,9 +74,7 @@ def get_aspect_ratio(filename: str) -> Optional[float]:
     return width / height
 
 def get_duration(filename: str) -> float:
-    cmd = [
-        FFPROBE,
-        "-print_format", "json",
+    cmd = FFPROBE_JSON + [
         "-show_entries", "stream=duration",
         filename
     ]
@@ -89,9 +86,7 @@ def get_duration(filename: str) -> float:
 
 def count_video_frames(file_object: IO[bytes]) -> int:
     file_object.seek(0)
-    cmd = [
-        FFPROBE,
-        "-print_format", "json",
+    cmd = FFPROBE_JSON + [
         "-show_streams", "-count_frames", "-select_streams", "v",
         "-",
     ]
@@ -352,9 +347,7 @@ def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) 
     raise ValueError("no subtitles found for language: %s" % language)
 
 def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
-    cmd = [
-        FFPROBE,
-        "-print_format", "json",
+    cmd = FFPROBE_JSON + [
         "-show_streams", "-select_streams", "s",
         input_file,
     ]
