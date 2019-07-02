@@ -1,7 +1,10 @@
 [![Build Status][build-badge]][build-url]
+[![Coverage][coverage-badge]][coverage-url]
 
 [build-badge]: https://travis-ci.org/pawel-slowik/dpgv4.svg?branch=master
 [build-url]: https://travis-ci.org/pawel-slowik/dpgv4
+[coverage-badge]: https://codecov.io/gh/pawel-slowik/dpgv4/branch/master/graph/badge.svg
+[coverage-url]: https://codecov.io/gh/pawel-slowik/dpgv4
 
 dpgv4 is a [FFmpeg](https://www.ffmpeg.org/) wrapper for converting video files
 to DPG4 format. The DPG format is used by the
