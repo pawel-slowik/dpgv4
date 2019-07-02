@@ -1,0 +1,9 @@
+[run]
+branch = True
+source = dpgv4
+
+[report]
+exclude_lines =
+	pragma: no cover
+	if __name__ == .__main__.:
+omit = tests/*
