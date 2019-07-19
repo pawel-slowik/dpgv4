@@ -446,7 +446,7 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     if a_proc.returncode != 0:
         raise ExternalCommandFailedError(process_error_message(a_proc, a_error_message))
     gop = create_gop(v_tmp_file)
-    thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file)/ 10)))
+    thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
     header = create_header(
         count_video_frames(v_tmp_file),
         options.framerate,
