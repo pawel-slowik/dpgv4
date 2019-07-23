@@ -16,7 +16,7 @@ from shutil import copyfileobj
 from shlex import quote
 from operator import itemgetter
 from enum import Enum
-from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Union, Optional, Any
+from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Union, NamedTuple, Optional, Any
 from PIL import Image
 
 FFMPEG = "ffmpeg"
@@ -47,6 +47,8 @@ class PixelFormats(Enum):
     RGB18 = 1
     RGB21 = 2
     RGB24 = 3
+
+Font = NamedTuple("Font", [("name", Optional[str]), ("size", Optional[int])])
 
 class ExternalCommandError(Exception):
     pass
@@ -223,8 +225,7 @@ def prepare_video_conversion_command(
         framerate: float,
         quality: int,
         sid: Optional[int],
-        font_name: Optional[str],
-        font_size: Optional[int],
+        font: Optional[Font],
     ) -> Sequence[str]:
     width, height = calculate_dimensions(input_file)
     v_cmd = [
@@ -241,7 +242,7 @@ def prepare_video_conversion_command(
     if framerate not in MPEG_SPEC_FRAMERATES:
         v_cmd += ["-strict", "unofficial"]
     v_cmd += video_quality_options()[quality]
-    v_cmd += subtitle_options(input_file, sid, font_name, font_size)
+    v_cmd += subtitle_options(input_file, sid, font)
     v_cmd.append("-")
     logging.debug("video encoder command: %s", " ".join(map(quote, v_cmd)))
     return v_cmd
@@ -292,8 +293,7 @@ def video_quality_options() -> Mapping[int, Iterable[str]]:
 def subtitle_options(
         input_file: str,
         sid: Optional[int],
-        font_name: Optional[str],
-        font_size: Optional[int] = None,
+        font: Optional[Font] = None,
     ) -> Iterable[str]:
 
     def quote_sub_filename(filename: str) -> str:
@@ -322,10 +322,11 @@ def subtitle_options(
         "stream_index=%d" % sub_index,
     ]
     style = []
-    if font_name is not None:
-        style.append("FontName=%s" % font_name)
-    if font_size is not None:
-        style.append("FontSize=%d" % font_size)
+    if font:
+        if font.name is not None:
+            style.append("FontName=%s" % font.name)
+        if font.size is not None:
+            style.append("FontSize=%d" % font.size)
     if style:
         filter_options.append("force_style='%s'" % ",".join(style))
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
@@ -422,7 +423,8 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     v_cmd = prepare_video_conversion_command(
         input_file,
         options.framerate, options.quality,
-        parse_subtitle_stream_id(input_file, options.sid), options.font_name, options.font_size
+        parse_subtitle_stream_id(input_file, options.sid),
+        Font(name=options.font_name, size=options.font_size)
     )
     v_tmp_file = TemporaryFile()
     v_proc = subprocess.Popen(
