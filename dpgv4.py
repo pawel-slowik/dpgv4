@@ -489,7 +489,7 @@ def list_media_files(directory: str) -> Iterable[str]:
             if os.path.splitext(filename)[1][1:].lower() in media_extensions:
                 yield os.path.join(dirpath, filename)
 
-def list_input_files(inputs: list) -> Set[str]:
+def list_input_files(inputs: Iterable[str]) -> Set[str]:
 
     def gen_input_files(inputs: Iterable[str]) -> Iterable[str]:
         for inp in inputs:
