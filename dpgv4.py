@@ -172,7 +172,8 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
             frame_number += 1
         process.wait()
         if process.returncode != 0:
-            raise ExternalCommandFailedError(process_error_message(process))
+            stderr = process.stderr.read()
+            raise ExternalCommandFailedError(process_error_message(process, stderr))
     return gop
 
 def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
@@ -418,10 +419,10 @@ def file_size(file_object: IO[bytes]) -> int:
     """Get file size for a file object."""
     return os.stat(file_object.fileno()).st_size
 
-def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
+def read_progress(label: str, process: subprocess.Popen) -> str:
     """Read and log progress from ffmpeg encoding command.
 
-    Return stderr as string (stripped of progress information) or None."""
+    Return stderr as string (stripped of progress information)."""
 
     def parse_progress_current(line: str) -> Optional[float]:
         return parse_progress_line("time=", line)
@@ -456,7 +457,7 @@ def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
         if progress_time_current - progress_time_previous > 5:
             progress_time_previous = progress_time_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
-    return "".join(progress_stderr_skipped_lines) if progress_stderr_skipped_lines else None
+    return "".join(progress_stderr_skipped_lines)
 
 def convert_file(input_file: str, output_file: str, options: Any) -> None:
     """Convert a single video file to the DPG4 format."""
@@ -595,7 +596,7 @@ def check_external_command(
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
 
-def process_error_message(process: subprocess.Popen, error_message: Optional[str] = None) -> str:
+def process_error_message(process: subprocess.Popen, error_message: str) -> str:
     """Utility for making external command exceptions more readable / easier to debug."""
 
     def args_str(args: Any) -> str:
@@ -610,8 +611,6 @@ def process_error_message(process: subprocess.Popen, error_message: Optional[str
                 return str(b" ".join(args))
         return repr(args)
 
-    if error_message is None:
-        error_message = process.stderr.read()
     return "\n".join([
         "The command:",
         args_str(process.args),
