@@ -598,25 +598,25 @@ def check_external_command(
 
 def process_error_message(process: subprocess.Popen, error_message: str) -> str:
     """Utility for making external command exceptions more readable / easier to debug."""
-
-    def args_str(args: Any) -> str:
-        if isinstance(args, str):
-            return args
-        if isinstance(args, bytes):
-            return str(args)
-        if isinstance(args, Sequence) and args:
-            if isinstance(args[0], str):
-                return " ".join(args)
-            if isinstance(args[0], bytes):
-                return str(b" ".join(args))
-        return repr(args)
-
     return "\n".join([
         "The command:",
-        args_str(process.args),
+        process_args_str(process.args),
         "failed with exit code %d and error message:" % process.returncode,
         error_message,
     ])
+
+def process_args_str(args: Any) -> str:
+    """Convert subprocess.Popen.args to a string suitable for exceptions / debugging."""
+    if isinstance(args, str):
+        return args
+    if isinstance(args, bytes):
+        return str(args)
+    if isinstance(args, Sequence) and args:
+        if isinstance(args[0], str):
+            return " ".join(args)
+        if isinstance(args[0], bytes):
+            return str(b" ".join(args))
+    return repr(args)
 
 def main() -> None:
     """A simple CLI for the module. Run with `-h` for help."""
