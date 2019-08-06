@@ -468,22 +468,14 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         Font(name=options.font_name, size=options.font_size)
     )
     v_tmp_file = TemporaryFile()
-    v_proc = subprocess.Popen(
-        v_cmd,
-        stdout=v_tmp_file,
-        stderr=subprocess.PIPE,
-    )
+    v_proc = subprocess.Popen(v_cmd, stdout=v_tmp_file, stderr=subprocess.PIPE)
     v_error_message = read_progress("video", v_proc)
     v_proc.wait()
     if v_proc.returncode != 0:
         raise ExternalCommandFailedError(process_error_message(v_proc, v_error_message))
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
-    a_proc = subprocess.Popen(
-        a_cmd,
-        stdout=a_tmp_file,
-        stderr=subprocess.PIPE,
-    )
+    a_proc = subprocess.Popen(a_cmd, stdout=a_tmp_file, stderr=subprocess.PIPE)
     a_error_message = read_progress("audio", a_proc)
     a_proc.wait()
     if a_proc.returncode != 0:
