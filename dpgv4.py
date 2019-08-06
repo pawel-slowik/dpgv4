@@ -173,7 +173,7 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
         process.wait()
         if process.returncode != 0:
             stderr = process.stderr.read()
-            raise ExternalCommandFailedError(process_error_message(process, stderr))
+            raise ExternalCommandFailedError(process_error_message(process.returncode, process.args, stderr))
     return gop
 
 def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
@@ -473,14 +473,14 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     v_error_message = read_progress("video", v_proc)
     v_proc.wait()
     if v_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(v_proc, v_error_message))
+        raise ExternalCommandFailedError(process_error_message(v_proc.returncode, v_proc.args, v_error_message))
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
     a_proc = subprocess.Popen(a_cmd, stdout=a_tmp_file, stderr=subprocess.PIPE)
     a_error_message = read_progress("audio", a_proc)
     a_proc.wait()
     if a_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(a_proc, a_error_message))
+        raise ExternalCommandFailedError(process_error_message(a_proc.returncode, a_proc.args, a_error_message))
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
     header = create_header(
@@ -596,12 +596,12 @@ def check_external_command(
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
 
-def process_error_message(process: subprocess.Popen, error_message: str) -> str:
+def process_error_message(returncode: int, args: Any, error_message: str) -> str:
     """Utility for making external command exceptions more readable / easier to debug."""
     return "\n".join([
         "The command:",
-        process_args_str(process.args),
-        "failed with exit code %d and error message:" % process.returncode,
+        process_args_str(args),
+        "failed with exit code %d and error message:" % returncode,
         error_message,
     ])
 
