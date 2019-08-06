@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import count_video_frames
 from .util import sample_filename
 

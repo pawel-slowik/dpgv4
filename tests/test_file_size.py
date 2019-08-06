@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import file_size
 from .util import sample_filename
 

@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import get_aspect_ratio
 from .util import sample_filename
 

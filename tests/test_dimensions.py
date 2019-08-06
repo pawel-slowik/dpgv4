@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import calculate_dimensions
 from .util import sample_filename
 

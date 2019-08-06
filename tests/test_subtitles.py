@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import list_subtitle_streams, parse_subtitle_stream_id, subtitle_options
 from .util import sample_filename
 

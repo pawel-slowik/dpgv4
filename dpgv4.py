@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Convert video files to DPG4 format for MoonShell 2 / Nintendo DS."""
 
 import os
 import errno
@@ -34,15 +35,18 @@ SCREEN_HEIGHT = 192
 AUDIO_SAMPLE_RATE = 32000
 
 class AudioCodec(Enum):
+    """Available audio codecs."""
     MP2_2CH = 0
     GSM_1CH = 1
     CSM_2CH = 2
     VORBIS_2CH = 3
 
-# The listed pixel formats are not compatible with MPEG-1 video. However the
-# value of 3 / RGB24 seems to work, others are not tested. The value is only
-# used in the DPG header, not for encoding. See docs/pixel_formats.md.
 class PixelFormats(Enum):
+    """Available pixel formats.
+
+    The listed pixel formats are not compatible with MPEG-1 video. However the
+    value of 3 / RGB24 seems to work, others are not tested. The value is only
+    used in the DPG header, not for encoding. See docs/pixel_formats.md."""
     RGB15 = 0
     RGB18 = 1
     RGB21 = 2
@@ -51,15 +55,19 @@ class PixelFormats(Enum):
 Font = NamedTuple("Font", [("name", Optional[str]), ("size", Optional[int])])
 
 class ExternalCommandError(Exception):
-    pass
+    """Base for all exceptions related to external commands."""
 
 class ExternalCommandNotFoundError(ExternalCommandError):
-    pass
+    """Raised when an external command couldn't be found.
+
+    For example, when the relevant package is not installed or when the command
+    is not in $PATH."""
 
 class ExternalCommandFailedError(ExternalCommandError):
-    pass
+    """Raised when an external command fails."""
 
 def get_aspect_ratio(filename: str) -> Optional[float]:
+    """Read aspect ratio from video metadata."""
     cmd = FFPROBE_JSON + [
         "-show_streams", "-select_streams", "v",
         filename
@@ -78,6 +86,7 @@ def get_aspect_ratio(filename: str) -> Optional[float]:
     return width / height
 
 def get_duration(filename: str) -> float:
+    """Get video duration in seconds."""
     cmd = FFPROBE_JSON + [
         "-show_entries", "stream=duration",
         filename
@@ -90,6 +99,7 @@ def get_duration(filename: str) -> float:
     raise ValueError("can't read duration for file: %s" % filename)
 
 def count_video_frames(file_object: IO[bytes]) -> int:
+    """Get the number of video frames."""
     file_object.seek(0)
     cmd = FFPROBE_JSON + [
         "-show_streams", "-count_frames", "-select_streams", "v",
@@ -101,6 +111,7 @@ def count_video_frames(file_object: IO[bytes]) -> int:
     return int(stream_info["nb_read_frames"])
 
 def calculate_dimensions(input_file: str) -> Tuple[int, int]:
+    """Get video dimensions, taking metadata aspect ratio into account."""
     debug_msg = "target video dimensions: width %d, height %d, original aspect ratio %s"
     input_aspect_ratio = get_aspect_ratio(input_file)
     if input_aspect_ratio is None:
@@ -117,6 +128,13 @@ def calculate_dimensions(input_file: str) -> Tuple[int, int]:
     return width, height
 
 def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
+    """Create an index that allows faster seeking.
+
+    Note: as far as I can tell, this is not a standard GOP / group of pictures
+    structure. It is an index that maps frame numbers to stream offsets.
+    This is referred to as `GOPList` in MoonShell:
+    misctools/DPGTools/sources/_encvideo.pas
+    and simply as `GOP` in other implementations."""
 
     def row_to_frame(row: Iterable[str]) -> Mapping[str, str]:
         frame = {}
@@ -158,6 +176,7 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
     return gop
 
 def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
+    """Extract single video frame as an image in raw format."""
     file_object.seek(0)
     shot_cmd = [
         FFMPEG,
@@ -172,6 +191,7 @@ def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
     return output # type: ignore
 
 def create_thumbnail(image_bytes: bytes) -> bytes:
+    """Resize and convert raw image into a format suitable for the DPG4 thumbnail."""
     image = Image.open(BytesIO(image_bytes))
     if image.width != SCREEN_WIDTH or image.height != SCREEN_HEIGHT:
         thumbnail = image.copy()
@@ -200,6 +220,7 @@ def create_header(
         video_size: int,
         gop_size: int
     ) -> bytes:
+    """Create the DPG4 header."""
     audio_start = 98356 # 52 header + 98304 thumbnail
     video_start = audio_start + audio_size
     video_end = video_start + video_size
@@ -227,6 +248,7 @@ def prepare_video_conversion_command(
         sid: Optional[int],
         font: Optional[Font],
     ) -> Sequence[str]:
+    """Prepare the command for converting the video stream."""
     width, height = calculate_dimensions(input_file)
     v_cmd = [
         FFMPEG,
@@ -248,6 +270,7 @@ def prepare_video_conversion_command(
     return v_cmd
 
 def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Sequence[str]:
+    """Prepare the command for converting the audio stream."""
     a_cmd = [
         FFMPEG,
         "-hide_banner",
@@ -264,6 +287,11 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
     return a_cmd
 
 def video_quality_options() -> Mapping[int, Iterable[str]]:
+    """Map quality settings to libavcodec options.
+
+    Keys are choices for the `-q` CLI parameter. Values are ffmpeg / libavcodec
+    encoder options, see https://ffmpeg.org/ffmpeg-codecs.html and
+    `ffmpeg -h encoder=mpeg1video`"""
     # libavcodec options shared between both quality settings
     lavcopts_base = [
         "-mbd", "2",
@@ -295,6 +323,7 @@ def subtitle_options(
         sid: Optional[int],
         font: Optional[Font] = None,
     ) -> Iterable[str]:
+    """Prepare ffmpeg options for rendering the subtitle stream (hardsub)."""
 
     def quote_sub_filename(filename: str) -> str:
         # the following characters need to be escaped because they have special meaning in the
@@ -332,6 +361,7 @@ def subtitle_options(
     return ["-vf", "subtitles=%s" % ":".join(filter_options)]
 
 def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) -> Optional[int]:
+    """Translate the CLI `-s` parameter into a stream index suitable for subtitle_options()."""
     subtitle_streams = tuple(list_subtitle_streams(input_file))
     external_sub_file = find_sub_file(input_file)
     if input_sid is None:
@@ -352,6 +382,7 @@ def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) 
     raise ValueError("no subtitles found for language: %s" % language)
 
 def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
+    """List subtitle streams."""
     cmd = FFPROBE_JSON + [
         "-show_streams", "-select_streams", "s",
         input_file,
@@ -361,6 +392,7 @@ def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
     return json.loads(output)["streams"] # type: ignore
 
 def stream_matches_language(stream: Mapping, language: str) -> bool:
+    """Check if a stream matches given language."""
     language = language.lower()
     try:
         tags = stream["tags"]
@@ -372,6 +404,10 @@ def stream_matches_language(stream: Mapping, language: str) -> bool:
         return False
 
 def find_sub_file(filename: str) -> Optional[str]:
+    """Find an external subtitle file for a video file.
+
+    For example, a file named `movies/title.srt` (if it exists) is an external
+    subtitle file for `movies/title.avi`."""
     basename = os.path.splitext(filename)[0]
     for extension in [".ass", ".srt", ".ssa", ".sub"]:
         if os.path.exists(basename + extension):
@@ -379,9 +415,13 @@ def find_sub_file(filename: str) -> Optional[str]:
     return None
 
 def file_size(file_object: IO[bytes]) -> int:
+    """Get file size for a file object."""
     return os.stat(file_object.fileno()).st_size
 
 def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
+    """Read and log progress from ffmpeg encoding command.
+
+    Return stderr as string (stripped of progress information) or None."""
 
     def parse_progress_current(line: str) -> Optional[float]:
         return parse_progress_line("time=", line)
@@ -419,6 +459,7 @@ def read_progress(label: str, process: subprocess.Popen) -> Optional[str]:
     return "".join(progress_stderr_skipped_lines) if progress_stderr_skipped_lines else None
 
 def convert_file(input_file: str, output_file: str, options: Any) -> None:
+    """Convert a single video file to the DPG4 format."""
     logging.info("processing file: %s", quote(input_file))
     v_cmd = prepare_video_conversion_command(
         input_file,
@@ -471,6 +512,7 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     logging.info("done: %s -> %s", quote(input_file), quote(output_file))
 
 def list_media_files(directory: str) -> Iterable[str]:
+    """Recursively list all convertable video files in a directory."""
     media_extensions = [
         "avi",
         "flv",
@@ -490,6 +532,12 @@ def list_media_files(directory: str) -> Iterable[str]:
                 yield os.path.join(dirpath, filename)
 
 def list_input_files(inputs: Iterable[str]) -> Set[str]:
+    """Prepare a list of input files based on CLI arguments.
+
+    This means:
+    - replace directories with list of media files in a directory,
+    - remove duplicates to avoid encoding a single file more than once,
+    - convert to absolute paths."""
 
     def gen_input_files(inputs: Iterable[str]) -> Iterable[str]:
         for inp in inputs:
@@ -501,6 +549,7 @@ def list_input_files(inputs: Iterable[str]) -> Set[str]:
     return set(map(os.path.abspath, gen_input_files(inputs)))
 
 def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[Tuple[str, str]]:
+    """Prepare a list of (input_file, output_file) pairs."""
 
     def output_filename(input_filename: str) -> str:
         return os.path.splitext(input_filename)[0] + ".dpg"
@@ -537,6 +586,7 @@ def check_external_command(
         expected_output: bytes,
         expected_exit_code: int
     ) -> None:
+    """Check whether an external command can be called without an error."""
     try:
         process = subprocess.Popen(
             command,
@@ -554,6 +604,7 @@ def check_external_command(
         raise ExternalCommandFailedError(command)
 
 def process_error_message(process: subprocess.Popen, error_message: Optional[str] = None) -> str:
+    """Utility for making external command exceptions more readable / easier to debug."""
 
     def args_str(args: Any) -> str:
         if isinstance(args, str):
@@ -577,6 +628,7 @@ def process_error_message(process: subprocess.Popen, error_message: Optional[str
     ])
 
 def main() -> None:
+    """A simple CLI for the module. Run with `-h` for help."""
     import argparse
 
     parser = argparse.ArgumentParser(

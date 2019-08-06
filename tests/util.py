@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 import os.path
 
 def sample_filename(filename: str) -> str:

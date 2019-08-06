@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import create_gop
 from .util import sample_filename
 

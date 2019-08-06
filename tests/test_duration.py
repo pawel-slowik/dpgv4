@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 from dpgv4 import get_duration
 from .util import sample_filename
 

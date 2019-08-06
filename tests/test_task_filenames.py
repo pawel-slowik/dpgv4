@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 import pytest
 from dpgv4 import create_task_list
 
