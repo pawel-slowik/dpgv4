@@ -460,24 +460,6 @@ def read_progress(label: str, process: subprocess.Popen) -> str:
     """Read and log progress from ffmpeg encoding command.
 
     Return stderr as string (stripped of progress information)."""
-
-    def parse_progress_current(line: str) -> Optional[float]:
-        return parse_progress_line("time=", line)
-
-    def parse_progress_total(line: str) -> Optional[float]:
-        return parse_progress_line(r"Duration:\s+", line)
-
-    def parse_progress_line(prefix: str, line: str) -> Optional[float]:
-        regexp = prefix + r"(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2}.\d{2})"
-        match = re.search(regexp, line)
-        if not match:
-            return None
-        return (
-            int(match.group("hours")) * 3600
-            + int(match.group("minutes")) * 60
-            + float(match.group("seconds"))
-        )
-
     progress_total = None
     progress_time_previous = time.monotonic()
     progress_stderr_skipped_lines = []
@@ -495,6 +477,26 @@ def read_progress(label: str, process: subprocess.Popen) -> str:
             progress_time_previous = progress_time_current
             logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
     return "".join(progress_stderr_skipped_lines)
+
+def parse_progress_current(line: str) -> Optional[float]:
+    """Extract time in seconds from ffmpeg progress report line."""
+    return parse_progress_line("time=", line)
+
+def parse_progress_total(line: str) -> Optional[float]:
+    """Extract time in seconds from ffmpeg summary information line."""
+    return parse_progress_line(r"Duration:\s+", line)
+
+def parse_progress_line(prefix: str, line: str) -> Optional[float]:
+    """Extract time in seconds from a prefixed string."""
+    regexp = prefix + r"(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2}.\d{2})"
+    match = re.search(regexp, line)
+    if not match:
+        return None
+    return (
+        int(match.group("hours")) * 3600
+        + int(match.group("minutes")) * 60
+        + float(match.group("seconds"))
+    )
 
 def convert_file(input_file: str, output_file: str, options: Any) -> None:
     """Convert a single video file to the DPG4 format."""
