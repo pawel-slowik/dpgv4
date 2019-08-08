@@ -92,8 +92,8 @@ def get_aspect_ratio(filename: str) -> Optional[float]:
         "-show_streams", "-select_streams", "v",
         filename
     ]
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-    output = output.decode("utf-8")
+    raw_output = run_external_command(cmd)
+    output = raw_output.decode("utf-8")
     stream_info = json.loads(output)["streams"][0]
     if "display_aspect_ratio" not in stream_info:
         return None
@@ -111,8 +111,8 @@ def get_duration(filename: str) -> float:
         "-show_entries", "stream=duration",
         filename
     ]
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-    output = output.decode("utf-8")
+    raw_output = run_external_command(cmd)
+    output = raw_output.decode("utf-8")
     for stream_info in json.loads(output)["streams"]:
         if "duration" in stream_info:
             return float(stream_info["duration"])
@@ -125,8 +125,8 @@ def count_video_frames(file_object: IO[bytes]) -> int:
         "-show_streams", "-count_frames", "-select_streams", "v",
         "-",
     ]
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, stdin=file_object)
-    output = output.decode("utf-8")
+    raw_output = run_external_command(cmd, file_object)
+    output = raw_output.decode("utf-8")
     stream_info = json.loads(output)["streams"][0]
     return int(stream_info["nb_read_frames"])
 
@@ -175,25 +175,30 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
     ]
     gop = b""
     frame_number = 0
-    with subprocess.Popen(
+    try:
+        process = subprocess.Popen(
             cmd,
             stdin=mpeg_file_object,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
-    ) as process:
-        for row in csv.reader(process.stdout, delimiter="|"):
-            if not row or row[0] != "frame":
-                continue
-            frame = row_to_frame(row)
-            if frame["pict_type"] == "I":
-                gop += struct.pack("<l", frame_number)
-                gop += struct.pack("<l", int(frame["pkt_pos"]))
-            frame_number += 1
-        process.wait()
-        if process.returncode != 0:
-            stderr = process.stderr.read()
-            raise ExternalCommandFailedError(process.returncode, process.args, stderr)
+        )
+    except OSError as os_err:
+        if os_err.errno == errno.ENOENT:
+            raise ExternalCommandNotFoundError(cmd)
+        raise os_err
+    for row in csv.reader(process.stdout, delimiter="|"):
+        if not row or row[0] != "frame":
+            continue
+        frame = row_to_frame(row)
+        if frame["pict_type"] == "I":
+            gop += struct.pack("<l", frame_number)
+            gop += struct.pack("<l", int(frame["pkt_pos"]))
+        frame_number += 1
+    process.wait()
+    if process.returncode != 0:
+        stderr = process.stderr.read()
+        raise ExternalCommandFailedError(process.returncode, process.args, stderr)
     return gop
 
 def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
@@ -209,8 +214,8 @@ def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
         "-c:v", "bmp",
         "-",
     ]
-    output = subprocess.check_output(shot_cmd, stderr=subprocess.DEVNULL, stdin=file_object)
-    return output # type: ignore
+    output = run_external_command(shot_cmd, file_object)
+    return output
 
 def create_thumbnail(image_bytes: bytes) -> bytes:
     """Resize and convert raw image into a format suitable for the DPG4 thumbnail."""
@@ -409,8 +414,8 @@ def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
         "-show_streams", "-select_streams", "s",
         input_file,
     ]
-    output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-    output = output.decode("utf-8")
+    raw_output = run_external_command(cmd)
+    output = raw_output.decode("utf-8")
     return json.loads(output)["streams"] # type: ignore
 
 def stream_matches_language(stream: Mapping, language: str) -> bool:
@@ -519,7 +524,12 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
 
 def encode_stream(label: str, command: Sequence[str], output: IO[bytes]) -> None:
     """Run a ffmpeg encoding command."""
-    proc = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE)
+    try:
+        proc = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE)
+    except OSError as os_err:
+        if os_err.errno == errno.ENOENT:
+            raise ExternalCommandNotFoundError(command)
+        raise os_err
     error_message = read_progress(label, proc)
     proc.wait()
     if proc.returncode != 0:
@@ -612,6 +622,27 @@ def check_external_command(
         raise os_err
     if process.returncode != 0:
         raise ExternalCommandFailedError(process.returncode, process.args, stderr)
+
+def run_external_command(command: Sequence[str], stdin: Optional[IO[bytes]] = None) -> bytes:
+    """Run an external command.
+
+    The purpose of this wrapper is to make it easier to signal missing dependencies and
+    configuration issues. Specialized exceptions are used for this purpose."""
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=stdin,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        (stdout, stderr) = process.communicate()
+    except OSError as os_err:
+        if os_err.errno == errno.ENOENT:
+            raise ExternalCommandNotFoundError(command)
+        raise os_err
+    if process.returncode != 0:
+        raise ExternalCommandFailedError(process.returncode, process.args, stderr)
+    return stdout # type: ignore # communicate(...) returns bytes by default
 
 def process_args_str(args: Any) -> str:
     """Convert subprocess.Popen.args to a string suitable for exceptions / debugging."""
