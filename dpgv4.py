@@ -66,6 +66,26 @@ class ExternalCommandNotFoundError(ExternalCommandError):
 class ExternalCommandFailedError(ExternalCommandError):
     """Raised when an external command fails."""
 
+    def __init__(self, return_code: int, command: Any, error_message: Union[str, bytes]):
+        super().__init__(return_code, command, error_message)
+        self.return_code = return_code
+        self.command = command
+        self.error_message = error_message
+
+    def __str__(self) -> str:
+        if isinstance(self.error_message, str):
+            error_message = self.error_message
+        else:
+            try:
+                error_message = self.error_message.decode("ascii")
+            except UnicodeDecodeError:
+                error_message = str(self.error_message)
+        command = process_args_str(self.command)
+        return (
+            "command failed:\n%s\nreturn code: %d\nerror message: %s"
+            % (command, self.return_code, error_message)
+        )
+
 def get_aspect_ratio(filename: str) -> Optional[float]:
     """Read aspect ratio from video metadata."""
     cmd = FFPROBE_JSON + [
@@ -173,7 +193,7 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
         process.wait()
         if process.returncode != 0:
             stderr = process.stderr.read()
-            raise ExternalCommandFailedError(process_error_message(process.returncode, process.args, stderr))
+            raise ExternalCommandFailedError(process.returncode, process.args, stderr)
     return gop
 
 def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
@@ -473,14 +493,14 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     v_error_message = read_progress("video", v_proc)
     v_proc.wait()
     if v_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(v_proc.returncode, v_proc.args, v_error_message))
+        raise ExternalCommandFailedError(v_proc.returncode, v_proc.args, v_error_message)
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
     a_proc = subprocess.Popen(a_cmd, stdout=a_tmp_file, stderr=subprocess.PIPE)
     a_error_message = read_progress("audio", a_proc)
     a_proc.wait()
     if a_proc.returncode != 0:
-        raise ExternalCommandFailedError(process_error_message(a_proc.returncode, a_proc.args, a_error_message))
+        raise ExternalCommandFailedError(a_proc.returncode, a_proc.args, a_error_message)
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
     header = create_header(
@@ -582,24 +602,15 @@ def check_external_command(
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.PIPE,
         )
-        process.communicate()
+        (_, stderr) = process.communicate()
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
             raise ExternalCommandNotFoundError(command)
         raise os_err
     if process.returncode != 0:
-        raise ExternalCommandFailedError(command)
-
-def process_error_message(returncode: int, args: Any, error_message: str) -> str:
-    """Utility for making external command exceptions more readable / easier to debug."""
-    return "\n".join([
-        "The command:",
-        process_args_str(args),
-        "failed with exit code %d and error message:" % returncode,
-        error_message,
-    ])
+        raise ExternalCommandFailedError(process.returncode, process.args, stderr)
 
 def process_args_str(args: Any) -> str:
     """Convert subprocess.Popen.args to a string suitable for exceptions / debugging."""
