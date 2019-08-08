@@ -22,7 +22,7 @@ from PIL import Image
 
 FFMPEG = "ffmpeg"
 FFPROBE = "ffprobe"
-FFPROBE_JSON = [FFPROBE, "-print_format", "json=sv=replace:svr=\uFFFD"]
+FFPROBE_JSON = [FFPROBE, "-hide_banner", "-print_format", "json=sv=replace:svr=\uFFFD"]
 
 # For details see docs/framerates.md.
 MPEG_SPEC_FRAMERATES = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
@@ -201,6 +201,7 @@ def create_screenshot(file_object: IO[bytes], seconds: int) -> bytes:
     file_object.seek(0)
     shot_cmd = [
         FFMPEG,
+        "-hide_banner",
         "-ss", str(seconds),
         "-i", "-",
         "-vframes", "1",
