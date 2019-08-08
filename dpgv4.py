@@ -63,6 +63,17 @@ class ExternalCommandNotFoundError(ExternalCommandError):
     For example, when the relevant package is not installed or when the command
     is not in $PATH."""
 
+    def __init__(self, command: Any):
+        super().__init__(command)
+        self.command = command
+
+    def __str__(self) -> str:
+        return "\n".join([
+            "command not found:",
+            process_args_str(self.command),
+            "make sure FFmpeg is installed and available in $PATH"
+        ])
+
 class ExternalCommandFailedError(ExternalCommandError):
     """Raised when an external command fails."""
 
