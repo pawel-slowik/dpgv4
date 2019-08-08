@@ -577,7 +577,6 @@ def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[T
 def check_external_command(
         command: Sequence[str],
         expected_output: bytes,
-        expected_exit_code: int
     ) -> None:
     """Check whether an external command can be called without an error."""
     try:
@@ -591,7 +590,7 @@ def check_external_command(
         if os_err.errno == errno.ENOENT:
             raise ExternalCommandNotFoundError(command)
         raise os_err
-    if process.returncode != expected_exit_code:
+    if process.returncode != 0:
         raise ExternalCommandFailedError(command)
     if re.search(expected_output, output) is None:
         raise ExternalCommandFailedError(command)
@@ -665,8 +664,8 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
-    check_external_command([FFMPEG, "-version"], b"^ffmpeg version .*", 0)
-    check_external_command([FFPROBE, "-version"], b"^ffprobe version .*", 0)
+    check_external_command([FFMPEG, "-version"], b"^ffmpeg version .*")
+    check_external_command([FFPROBE, "-version"], b"^ffprobe version .*")
     if args.framerate not in MPEG_SPEC_FRAMERATES:
         logging.warning("non standard framerate: %s, sync issues may occur", args.framerate)
     for input_file_or_dir in args.files:
