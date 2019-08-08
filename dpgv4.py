@@ -489,18 +489,10 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         Font(name=options.font_name, size=options.font_size)
     )
     v_tmp_file = TemporaryFile()
-    v_proc = subprocess.Popen(v_cmd, stdout=v_tmp_file, stderr=subprocess.PIPE)
-    v_error_message = read_progress("video", v_proc)
-    v_proc.wait()
-    if v_proc.returncode != 0:
-        raise ExternalCommandFailedError(v_proc.returncode, v_proc.args, v_error_message)
+    encode_stream("video", v_cmd, v_tmp_file)
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     a_tmp_file = TemporaryFile()
-    a_proc = subprocess.Popen(a_cmd, stdout=a_tmp_file, stderr=subprocess.PIPE)
-    a_error_message = read_progress("audio", a_proc)
-    a_proc.wait()
-    if a_proc.returncode != 0:
-        raise ExternalCommandFailedError(a_proc.returncode, a_proc.args, a_error_message)
+    encode_stream("audio", a_cmd, a_tmp_file)
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
     header = create_header(
@@ -523,6 +515,14 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     outfile.write(gop)
     outfile.close()
     logging.info("done: %s -> %s", quote(input_file), quote(output_file))
+
+def encode_stream(label: str, command: Sequence[str], output: IO[bytes]) -> None:
+    """Run a ffmpeg encoding command."""
+    proc = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE)
+    error_message = read_progress(label, proc)
+    proc.wait()
+    if proc.returncode != 0:
+        raise ExternalCommandFailedError(proc.returncode, proc.args, error_message)
 
 def list_media_files(directory: str) -> Iterable[str]:
     """Recursively list all convertable video files in a directory."""
