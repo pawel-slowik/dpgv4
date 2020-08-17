@@ -2,6 +2,7 @@
 from dpgv4 import create_gop
 from .util import sample_filename
 
+
 def test_gop() -> None:
     input_file = sample_filename("Test Image - 2141.mp4")
     expected_output_file = sample_filename("Test Image - 2141.gop")
