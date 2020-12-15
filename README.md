@@ -1,8 +1,7 @@
-[![Build Status][build-badge]][build-url]
+![Build Status][build-badge]
 [![Coverage][coverage-badge]][coverage-url]
 
-[build-badge]: https://travis-ci.org/pawel-slowik/dpgv4.svg?branch=master
-[build-url]: https://travis-ci.org/pawel-slowik/dpgv4
+[build-badge]: https://github.com/pawel-slowik/dpgv4/workflows/tests/badge.svg
 [coverage-badge]: https://codecov.io/gh/pawel-slowik/dpgv4/branch/master/graph/badge.svg
 [coverage-url]: https://codecov.io/gh/pawel-slowik/dpgv4
 
