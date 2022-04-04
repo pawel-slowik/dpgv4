@@ -127,12 +127,15 @@ def get_aspect_ratio(filename: str) -> Optional[float]:
 def get_duration(filename: str) -> float:
     """Get video duration in seconds."""
     cmd = FFPROBE_JSON + [
-        "-show_entries", "stream=duration",
+        "-show_entries", "stream=duration:format=duration",
         filename
     ]
     raw_output = run_external_command(cmd)
     output = raw_output.decode("utf-8")
-    for stream_info in json.loads(output)["streams"]:
+    json_output = json.loads(output)
+    if "duration" in json_output["format"]:
+      return float(json_output["format"]["duration"])
+    for stream_info in json_output["streams"]:
         if "duration" in stream_info:
             return float(stream_info["duration"])
     raise ValueError("can't read duration for file: %s" % filename)
