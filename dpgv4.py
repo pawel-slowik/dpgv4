@@ -181,7 +181,7 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
     def row_to_frame(row: Iterable[str]) -> Mapping[str, str]:
         frame = {}
         for item in row:
-            if item == "frame":
+            if item in ("frame", "side_data"):
                 continue
             key, value = item.split("=", 1)
             frame[key] = value
