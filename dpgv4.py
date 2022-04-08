@@ -215,7 +215,7 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
         )
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
-            raise ExternalCommandNotFoundError(cmd)
+            raise ExternalCommandNotFoundError(cmd) from os_err
         raise os_err
     with stack:
         for row in csv.reader(process.stdout, delimiter="|"):
@@ -581,7 +581,7 @@ def encode_stream(label: str, command: Sequence[str], output: IO[bytes]) -> None
         )
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
-            raise ExternalCommandNotFoundError(command)
+            raise ExternalCommandNotFoundError(command) from os_err
         raise os_err
     with stack:
         error_message = read_progress(label, proc)
@@ -677,7 +677,7 @@ def run_external_command(command: Sequence[str], stdin: Optional[IO[bytes]] = No
             (stdout, stderr) = process.communicate()
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
-            raise ExternalCommandNotFoundError(command)
+            raise ExternalCommandNotFoundError(command) from os_err
         raise os_err
     if process.returncode != 0:
         raise ExternalCommandFailedError(process.returncode, process.args, stderr)
