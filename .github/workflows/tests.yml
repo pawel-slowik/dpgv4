@@ -25,6 +25,8 @@ jobs:
       run: pip install -r requirements.txt
     - name: Install test dependencies
       run: pip install -U -r requirements-test.txt
+    - name: Lint with pylint
+      run: pylint dpgv4.py
     - name: Test with pytest
       run: pytest --cov
     - name: Upload coverage data to Codecov
