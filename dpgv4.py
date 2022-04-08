@@ -16,6 +16,7 @@ from io import BytesIO
 from shutil import copyfileobj
 from shlex import quote
 from operator import itemgetter
+from contextlib import ExitStack
 from enum import Enum
 from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Union, NamedTuple, Optional, Any
 from PIL import Image
@@ -200,30 +201,34 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
     ]
     gop = b""
     frame_number = 0
+    stack = ExitStack()
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdin=mpeg_file_object,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
+        process = stack.enter_context(
+            subprocess.Popen(
+                cmd,
+                stdin=mpeg_file_object,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
         )
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
             raise ExternalCommandNotFoundError(cmd)
         raise os_err
-    for row in csv.reader(process.stdout, delimiter="|"):
-        if not row or row[0] != "frame":
-            continue
-        frame = row_to_frame(row)
-        if frame["pict_type"] == "I":
-            gop += struct.pack("<l", frame_number)
-            gop += struct.pack("<l", int(frame["pkt_pos"]))
-        frame_number += 1
-    process.wait()
-    if process.returncode != 0:
-        stderr = process.stderr.read()
-        raise ExternalCommandFailedError(process.returncode, process.args, stderr)
+    with stack:
+        for row in csv.reader(process.stdout, delimiter="|"):
+            if not row or row[0] != "frame":
+                continue
+            frame = row_to_frame(row)
+            if frame["pict_type"] == "I":
+                gop += struct.pack("<l", frame_number)
+                gop += struct.pack("<l", int(frame["pkt_pos"]))
+            frame_number += 1
+        process.wait()
+        if process.returncode != 0:
+            stderr = process.stderr.read()
+            raise ExternalCommandFailedError(process.returncode, process.args, stderr)
     return gop
 
 
@@ -557,26 +562,28 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
         os.makedirs(os.path.dirname(output_file))
     v_tmp_file.seek(0)
     a_tmp_file.seek(0)
-    outfile = open(output_file, "wb")
-    outfile.write(header)
-    outfile.write(thumbnail)
-    copyfileobj(a_tmp_file, outfile)
-    copyfileobj(v_tmp_file, outfile)
-    outfile.write(gop)
-    outfile.close()
+    with open(output_file, "wb") as outfile:
+        outfile.write(header)
+        outfile.write(thumbnail)
+        copyfileobj(a_tmp_file, outfile)
+        copyfileobj(v_tmp_file, outfile)
+        outfile.write(gop)
     logging.info("done: %s -> %s", quote(input_file), quote(output_file))
 
 
 def encode_stream(label: str, command: Sequence[str], output: IO[bytes]) -> None:
     """Run a ffmpeg encoding command."""
+    stack = ExitStack()
     try:
-        proc = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE)
+        proc = stack.enter_context(
+            subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE)
+        )
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
             raise ExternalCommandNotFoundError(command)
         raise os_err
-    error_message = read_progress(label, proc)
-    proc.wait()
+    with stack:
+        error_message = read_progress(label, proc)
     if proc.returncode != 0:
         raise ExternalCommandFailedError(proc.returncode, proc.args, error_message)
 
@@ -660,13 +667,13 @@ def run_external_command(command: Sequence[str], stdin: Optional[IO[bytes]] = No
     The purpose of this wrapper is to make it easier to signal missing dependencies and
     configuration issues. Specialized exceptions are used for this purpose."""
     try:
-        process = subprocess.Popen(
+        with subprocess.Popen(
             command,
             stdin=stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
-        )
-        (stdout, stderr) = process.communicate()
+        ) as process:
+            (stdout, stderr) = process.communicate()
     except OSError as os_err:
         if os_err.errno == errno.ENOENT:
             raise ExternalCommandNotFoundError(command)
