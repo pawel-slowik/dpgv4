@@ -11,6 +11,7 @@ import csv
 import time
 import codecs
 import logging
+import argparse
 from tempfile import TemporaryFile
 from io import BytesIO
 from shutil import copyfileobj
@@ -699,8 +700,6 @@ def process_args_str(args: Any) -> str:
 
 def main() -> None:
     """A simple CLI for the module. Run with `-h` for help."""
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Convert video files to DPG4 format used by MoonShell for Nintendo DS."
     )
