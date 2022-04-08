@@ -137,7 +137,7 @@ def get_duration(filename: str) -> float:
     output = raw_output.decode("utf-8")
     json_output = json.loads(output)
     if "duration" in json_output["format"]:
-      return float(json_output["format"]["duration"])
+        return float(json_output["format"]["duration"])
     for stream_info in json_output["streams"]:
         if "duration" in stream_info:
             return float(stream_info["duration"])
