@@ -99,11 +99,12 @@ class ExternalCommandFailedError(ExternalCommandError):
                 error_message = self.error_message.decode("ascii")
             except UnicodeDecodeError:
                 error_message = str(self.error_message)
-        command = process_args_str(self.command)
-        return (
-            "command failed:\n%s\nreturn code: %d\nerror message: %s"
-            % (command, self.return_code, error_message)
-        )
+        return "\n".join((
+            "command failed:",
+            process_args_str(self.command),
+            f"return code: {self.return_code}",
+            f"error message: {error_message}",
+        ))
 
 
 def get_aspect_ratio(filename: str) -> Optional[float]:
@@ -140,7 +141,7 @@ def get_duration(filename: str) -> float:
     for stream_info in json_output["streams"]:
         if "duration" in stream_info:
             return float(stream_info["duration"])
-    raise ValueError("can't read duration for file: %s" % filename)
+    raise ValueError(f"can't read duration for file: {filename}")
 
 
 def count_video_frames(file_object: IO[bytes]) -> int:
@@ -318,9 +319,9 @@ def prepare_video_conversion_command(
         "-i", input_file,
         "-f", "data",
         "-map", "0:v:0",
-        "-r", "%g" % framerate,
+        "-r", f"{framerate:g}",
         "-sws_flags", "lanczos",
-        "-s", "%dx%d" % (width, height),
+        "-s", f"{width}x{height}",
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
@@ -339,7 +340,7 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
         "-hide_banner",
         "-i", input_file,
         "-f", "data",
-        "-map", "0:a:%d" % (0 if aid is None else aid),
+        "-map", f"0:a:{0 if aid is None else aid}",
         "-c:a", "mp2",
         "-b:a", "128k",
         "-ac", "2",
@@ -412,18 +413,18 @@ def subtitle_options(
         sub_file = input_file
         sub_index = sid
     filter_options = [
-        "filename=%s" % quote_sub_filename(sub_file),
-        "stream_index=%d" % sub_index,
+        f"filename={quote_sub_filename(sub_file)}",
+        f"stream_index={sub_index}",
     ]
     style = []
     if font:
         if font.name is not None:
-            style.append("FontName=%s" % font.name)
+            style.append(f"FontName={font.name}")
         if font.size is not None:
-            style.append("FontSize=%d" % font.size)
+            style.append(f"FontSize={font.size}")
     if style:
-        filter_options.append("force_style='%s'" % ",".join(style))
-    return ["-vf", "subtitles=%s" % ":".join(filter_options)]
+        filter_options.append(f"force_style='{','.join(style)}'")
+    return ["-vf", f"subtitles={':'.join(filter_options)}"]
 
 
 def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) -> Optional[int]:
@@ -445,7 +446,7 @@ def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) 
     for index, stream in enumerate(sorted(subtitle_streams, key=itemgetter("index"))):
         if stream_matches_language(stream, language):
             return index
-    raise ValueError("no subtitles found for language: %s" % language)
+    raise ValueError(f"no subtitles found for language: {language}")
 
 
 def list_subtitle_streams(input_file: str) -> Iterable[Mapping]:
@@ -747,7 +748,7 @@ def main() -> None:
         logging.warning("non standard framerate: %s, sync issues may occur", args.framerate)
     for input_file_or_dir in args.files:
         if not os.path.exists(input_file_or_dir):
-            raise ValueError("file or directory doesn't exist: %s" % input_file_or_dir)
+            raise ValueError(f"file or directory doesn't exist: {input_file_or_dir}")
     for input_file, output_file in create_task_list(list_input_files(args.files), args.output):
         convert_file(input_file, output_file, args)
 
