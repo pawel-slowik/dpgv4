@@ -219,7 +219,8 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
             raise ExternalCommandNotFoundError(cmd) from os_err
         raise os_err
     with stack:
-        for row in csv.reader(process.stdout, delimiter="|"):
+        data_stream: IO[str] = process.stdout  # type: ignore # opened with PIPE
+        for row in csv.reader(data_stream, delimiter="|"):
             if not row or row[0] != "frame":
                 continue
             frame = row_to_frame(row)
