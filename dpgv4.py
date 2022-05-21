@@ -229,8 +229,8 @@ def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
             frame_number += 1
         process.wait()
         if process.returncode != 0:
-            stderr = process.stderr.read()
-            raise ExternalCommandFailedError(process.returncode, process.args, stderr)
+            error_stream: IO[str] = process.stderr  # type: ignore # opened with PIPE
+            raise ExternalCommandFailedError(process.returncode, process.args, error_stream.read())
     return gop
 
 
