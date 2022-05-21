@@ -496,7 +496,7 @@ def read_progress(label: str, stream: IO[bytes]) -> str:
     Return stderr as string (stripped of progress information)."""
     total = None
     time_previous = time.monotonic()
-    stderr_skipped_lines = []
+    skipped_lines = []
     reader_factory = codecs.getreader("utf-8")
     for line in reader_factory(stream, errors="backslashreplace"):
         new_total = parse_progress_total(line)
@@ -504,7 +504,7 @@ def read_progress(label: str, stream: IO[bytes]) -> str:
             total = new_total
         current = parse_progress_current(line)
         if new_total is None and current is None:
-            stderr_skipped_lines.append(line)
+            skipped_lines.append(line)
         if total is None or current is None:
             continue
         percent_current = current / total * 100
@@ -512,7 +512,7 @@ def read_progress(label: str, stream: IO[bytes]) -> str:
         if time_current - time_previous > 5:
             time_previous = time_current
             logging.info("%s encoding progress: %.2f%%", label, percent_current)
-    return "".join(stderr_skipped_lines)
+    return "".join(skipped_lines)
 
 
 def parse_progress_current(line: str) -> Optional[float]:
