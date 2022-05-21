@@ -490,7 +490,7 @@ def file_size(file_object: IO[bytes]) -> int:
     return os.stat(file_object.fileno()).st_size
 
 
-def read_progress(label: str, process: subprocess.Popen) -> str:
+def read_progress(label: str, stream: IO[bytes]) -> str:
     """Read and log progress from ffmpeg encoding command.
 
     Return stderr as string (stripped of progress information)."""
@@ -498,12 +498,14 @@ def read_progress(label: str, process: subprocess.Popen) -> str:
     progress_time_previous = time.monotonic()
     progress_stderr_skipped_lines = []
     reader_factory = codecs.getreader("utf-8")
-    for line in reader_factory(process.stderr, errors="backslashreplace"):
+    for line in reader_factory(stream, errors="backslashreplace"):
+        new_progress_total = parse_progress_total(line)
         if progress_total is None:
-            progress_total = parse_progress_total(line)
+            progress_total = new_progress_total
         progress_current = parse_progress_current(line)
-        if progress_total is None or progress_current is None:
+        if new_progress_total is None and progress_current is None:
             progress_stderr_skipped_lines.append(line)
+        if progress_total is None or progress_current is None:
             continue
         progress_percent_current = progress_current / progress_total * 100
         progress_time_current = time.monotonic()
@@ -585,7 +587,8 @@ def encode_stream(label: str, command: Sequence[str], output: IO[bytes]) -> None
             raise ExternalCommandNotFoundError(command) from os_err
         raise os_err
     with stack:
-        error_message = read_progress(label, proc)
+        progress_stream: IO[bytes] = proc.stderr  # type: ignore # opened with PIPE
+        error_message = read_progress(label, progress_stream)
     if proc.returncode != 0:
         raise ExternalCommandFailedError(proc.returncode, proc.args, error_message)
 
