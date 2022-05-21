@@ -682,7 +682,7 @@ def run_external_command(command: Sequence[str], stdin: Optional[IO[bytes]] = No
         raise os_err
     if process.returncode != 0:
         raise ExternalCommandFailedError(process.returncode, process.args, stderr)
-    return stdout  # type: ignore # communicate(...) returns bytes by default
+    return stdout
 
 
 def process_args_str(args: Any) -> str:
