@@ -494,25 +494,25 @@ def read_progress(label: str, stream: IO[bytes]) -> str:
     """Read and log progress from ffmpeg encoding command.
 
     Return stderr as string (stripped of progress information)."""
-    progress_total = None
-    progress_time_previous = time.monotonic()
-    progress_stderr_skipped_lines = []
+    total = None
+    time_previous = time.monotonic()
+    stderr_skipped_lines = []
     reader_factory = codecs.getreader("utf-8")
     for line in reader_factory(stream, errors="backslashreplace"):
-        new_progress_total = parse_progress_total(line)
-        if progress_total is None:
-            progress_total = new_progress_total
-        progress_current = parse_progress_current(line)
-        if new_progress_total is None and progress_current is None:
-            progress_stderr_skipped_lines.append(line)
-        if progress_total is None or progress_current is None:
+        new_total = parse_progress_total(line)
+        if total is None:
+            total = new_total
+        current = parse_progress_current(line)
+        if new_total is None and current is None:
+            stderr_skipped_lines.append(line)
+        if total is None or current is None:
             continue
-        progress_percent_current = progress_current / progress_total * 100
-        progress_time_current = time.monotonic()
-        if progress_time_current - progress_time_previous > 5:
-            progress_time_previous = progress_time_current
-            logging.info("%s encoding progress: %.2f%%", label, progress_percent_current)
-    return "".join(progress_stderr_skipped_lines)
+        percent_current = current / total * 100
+        time_current = time.monotonic()
+        if time_current - time_previous > 5:
+            time_previous = time_current
+            logging.info("%s encoding progress: %.2f%%", label, percent_current)
+    return "".join(stderr_skipped_lines)
 
 
 def parse_progress_current(line: str) -> Optional[float]:
