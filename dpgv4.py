@@ -493,7 +493,8 @@ def file_size(file_object: IO[bytes]) -> int:
 def read_progress(label: str, stream: IO[bytes]) -> str:
     """Read and log progress from ffmpeg encoding command.
 
-    Return stderr as string (stripped of progress information)."""
+    Return a single string with all the lines of the stream that couldn't be
+    parsed as progress information, which are most likely error messages."""
     total = None
     time_previous = time.monotonic()
     skipped_lines = []
