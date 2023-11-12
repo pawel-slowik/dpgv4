@@ -321,8 +321,10 @@ def prepare_video_conversion_command(
         "-f", "data",
         "-map", "0:v:0",
         "-r", f"{framerate:g}",
-        "-sws_flags", "lanczos",
-        "-s", f"{width}x{height}",
+        #"-sws_flags", "lanczos",
+        #"-s", f"{width}x{height}",
+        #Prevent wrong width crash
+        "-vf", "scale=min(256\\,192*a):-1,pad=256:192:abs(ow-iw)/2:abs(oh-ih)/2",
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
@@ -551,18 +553,13 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     )
     v_tmp_file = TemporaryFile()
     encode_stream("video", v_cmd, v_tmp_file)
-    #Extend file if it's short
-    if count_video_frames(v_tmp_file) / options.framerate < 30:
-        for i in list(reversed(['-stream_loop','-1','-t','30'])):
-            v_cmd.insert(1,i)
-        v_tmp_file = TemporaryFile()
-        encode_stream("video", v_cmd, v_tmp_file)
-    a_cmd = prepare_audio_conversion_command(input_file, options.aid)
     #Create blank audio if no codec exists
     try:
+        a_cmd = prepare_audio_conversion_command(input_file, options.aid)
         a_tmp_file = TemporaryFile()
         encode_stream("audio", a_cmd, a_tmp_file)
     except ExternalCommandFailedError:
+        a_cmd = prepare_audio_conversion_command(input_file, options.aid)
         a_tmp_file = TemporaryFile()
         for i in list(reversed(['-t',str(count_video_frames(v_tmp_file) / options.framerate),'-f','lavfi','-i','anullsrc'])):
             a_cmd.insert(1,i)
