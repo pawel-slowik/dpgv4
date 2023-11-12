@@ -551,17 +551,22 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     )
     v_tmp_file = TemporaryFile()
     encode_stream("video", v_cmd, v_tmp_file)
-    if count_video_frames(v_tmp_file) / options.framerate < 60:
-        for i in list(reversed(['-stream_loop','-1','-t','60'])):
+    #Extend file if it's short
+    if count_video_frames(v_tmp_file) / options.framerate < 30:
+        for i in list(reversed(['-stream_loop','-1','-t','30'])):
             v_cmd.insert(1,i)
         v_tmp_file = TemporaryFile()
         encode_stream("video", v_cmd, v_tmp_file)
     a_cmd = prepare_audio_conversion_command(input_file, options.aid)
-    a_tmp_file = TemporaryFile()
-    if '.gif' in input_file:
+    #Create blank audio if no codec exists
+    try:
+        a_tmp_file = TemporaryFile()
+        encode_stream("audio", a_cmd, a_tmp_file)
+    except ExternalCommandFailedError:
+        a_tmp_file = TemporaryFile()
         for i in list(reversed(['-t',str(count_video_frames(v_tmp_file) / options.framerate),'-f','lavfi','-i','anullsrc'])):
             a_cmd.insert(1,i)
-    encode_stream("audio", a_cmd, a_tmp_file)
+        encode_stream("audio", a_cmd, a_tmp_file)
     gop = create_gop(v_tmp_file)
     thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
     header = create_header(
