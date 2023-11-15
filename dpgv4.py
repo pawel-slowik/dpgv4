@@ -321,8 +321,10 @@ def prepare_video_conversion_command(
         "-f", "data",
         "-map", "0:v:0",
         "-r", f"{framerate:g}",
-        "-sws_flags", "lanczos",
-        "-s", f"{width}x{height}",
+        #"-sws_flags", "lanczos",
+        #"-s", f"{width}x{height}",
+        #Prevent wrong width crash
+        "-vf", "scale=min(256\\,192*a):-1,pad=256:192:abs(ow-iw)/2:abs(oh-ih)/2",
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
@@ -343,7 +345,7 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
         "-f", "data",
         "-map", f"0:a:{0 if aid is None else aid}",
         "-c:a", "mp2",
-        "-b:a", "128k",
+        "-b:a", "320k",
         "-ac", "2",
         "-ar", str(AUDIO_SAMPLE_RATE),
         "-",
@@ -364,7 +366,7 @@ def video_quality_options() -> Mapping[int, Iterable[str]]:
         "-trellis", "1",
         "-mpv_flags", "+cbp_rd",
         "-mpv_flags", "+mv0",
-        "-b:v", "256k",
+        "-b:v", "512k",
     ]
     return {
         # default quality
@@ -551,11 +553,24 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
     )
     v_tmp_file = TemporaryFile()
     encode_stream("video", v_cmd, v_tmp_file)
-    a_cmd = prepare_audio_conversion_command(input_file, options.aid)
-    a_tmp_file = TemporaryFile()
-    encode_stream("audio", a_cmd, a_tmp_file)
+    #Create blank audio if no codec exists
+    try:
+        a_cmd = prepare_audio_conversion_command(input_file, options.aid)
+        a_tmp_file = TemporaryFile()
+        encode_stream("audio", a_cmd, a_tmp_file)
+    except ExternalCommandFailedError:
+        a_cmd = prepare_audio_conversion_command(input_file, options.aid)
+        a_tmp_file = TemporaryFile()
+        for i in list(reversed(['-t',str(count_video_frames(v_tmp_file) / options.framerate),'-f','lavfi','-i','anullsrc'])):
+            a_cmd.insert(1,i)
+        encode_stream("audio", a_cmd, a_tmp_file)
     gop = create_gop(v_tmp_file)
-    thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
+    #Catch bad thumbnails
+    try:
+        thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
+    except:
+        print("Bad Thumbnail")
+        exit()
     header = create_header(
         count_video_frames(v_tmp_file),
         options.framerate,
@@ -717,8 +732,8 @@ def main() -> None:
     )
     video_group = parser.add_argument_group("video options")
     video_group.add_argument(
-        "-q", type=int, dest="quality", choices=video_quality_options().keys(), default=1,
-        help="quality setting (default: 1)"
+        "-q", type=int, dest="quality", choices=video_quality_options().keys(), default=2,
+        help="quality setting (default: 2)"
     )
     video_group.add_argument(
         "-r", type=float, dest="framerate", choices=MPEG_FRAMERATES, default=24,
