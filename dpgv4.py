@@ -565,7 +565,12 @@ def convert_file(input_file: str, output_file: str, options: Any) -> None:
             a_cmd.insert(1,i)
         encode_stream("audio", a_cmd, a_tmp_file)
     gop = create_gop(v_tmp_file)
-    thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
+    #Catch bad thumbnails
+    try:
+        thumbnail = create_thumbnail(create_screenshot(v_tmp_file, int(get_duration(input_file) / 10)))
+    except:
+        print("Bad Thumbnail")
+        exit()
     header = create_header(
         count_video_frames(v_tmp_file),
         options.framerate,
