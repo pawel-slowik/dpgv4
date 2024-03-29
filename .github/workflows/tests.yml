@@ -28,6 +28,8 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Update package database before installing FFmpeg
+      run: sudo apt-get update
     - name: Install FFmpeg
       run: sudo apt-get install -y ffmpeg
     - name: Upgrade pip
