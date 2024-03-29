@@ -1,6 +1,17 @@
 name: tests
 
-on: [push, workflow_dispatch]
+on:
+  push:
+  pull_request:
+    types:
+      - assigned
+      - edited
+      - opened
+      - ready_for_review
+      - reopened
+      - review_requested
+      - synchronize
+  workflow_dispatch:
 
 jobs:
 
