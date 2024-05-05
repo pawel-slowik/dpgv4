@@ -336,12 +336,18 @@ def prepare_video_conversion_command(
 
 def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Sequence[str]:
     """Prepare the command for converting the audio stream."""
+    if check_for_audio_stream(input_file):
+        input_arguments = ["-i", input_file]
+        map_arguments = ["-map", f"0:a:{0 if aid is None else aid}"]
+    else:
+        input_arguments = ["-f", "lavfi", "-i", "anullsrc", "-t", str(get_duration(input_file))]
+        map_arguments = ["-map", "0:a:0"]
     a_cmd = [
         FFMPEG,
         "-hide_banner",
-        "-i", input_file,
+    ] + input_arguments + [
         "-f", "data",
-        "-map", f"0:a:{0 if aid is None else aid}",
+    ] + map_arguments + [
         "-c:a", "mp2",
         "-b:a", "128k",
         "-ac", "2",
@@ -350,6 +356,15 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
     ]
     logging.debug("audio encoder command: %s", " ".join(map(quote, a_cmd)))
     return a_cmd
+
+
+def check_for_audio_stream(filename: str) -> bool:
+    """Check whether the file has an audio stream."""
+    cmd = FFPROBE_JSON + ["-show_streams", "-select_streams", "a", filename]
+    raw_output = run_external_command(cmd)
+    output = raw_output.decode("utf-8")
+    audio_streams = json.loads(output)["streams"]
+    return bool(audio_streams)
 
 
 def video_quality_options() -> Mapping[int, Iterable[str]]:
