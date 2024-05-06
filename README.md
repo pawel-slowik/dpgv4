@@ -13,9 +13,14 @@ console.
 
 ## Installation
 
-There is no installation script yet. The script runs on Linux, should also run
-on BSD variants. Clone this repository and make sure you have Python 3.x,
-[Pillow](https://python-pillow.org/) and FFmpeg installed.
+There is no installation script yet. Clone this repository and make sure you
+have [Python 3.x][download-python], [Pillow][download-pillow] and
+[FFmpeg][download-ffmpeg] installed. The app should work on all systems that
+have those dependencies.
+
+[download-python]: https://www.python.org/downloads/
+[download-ffmpeg]: https://ffmpeg.org/download.html
+[download-pillow]: https://python-pillow.org/
 
 ## Usage
 
