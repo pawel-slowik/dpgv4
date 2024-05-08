@@ -19,7 +19,7 @@ from shlex import quote
 from operator import itemgetter
 from contextlib import ExitStack
 from enum import Enum
-from typing import Sequence, Iterable, Set, IO, Mapping, Tuple, Union, NamedTuple, Optional, Any
+from typing import Sequence, Iterable, Set, IO, Mapping, Union, NamedTuple, Optional, Any
 from PIL import Image
 
 FFMPEG = "ffmpeg"
@@ -55,6 +55,12 @@ class PixelFormats(Enum):
     RGB18 = 1
     RGB21 = 2
     RGB24 = 3
+
+
+class VideoDimensions(NamedTuple):
+    """Video dimensions."""
+    width: int
+    height: int
 
 
 class Font(NamedTuple):
@@ -110,6 +116,12 @@ class ExternalCommandFailedError(ExternalCommandError):
         ))
 
 
+class Task(NamedTuple):
+    """Input / output file specification for a conversion task."""
+    input_file: str
+    output_file: str
+
+
 def get_aspect_ratio(filename: str) -> Optional[float]:
     """Read aspect ratio from video metadata."""
     cmd = FFPROBE_JSON + [
@@ -160,13 +172,13 @@ def count_video_frames(file_object: IO[bytes]) -> int:
     return int(stream_info["nb_read_frames"])
 
 
-def calculate_dimensions(input_file: str) -> Tuple[int, int]:
+def calculate_dimensions(input_file: str) -> VideoDimensions:
     """Get video dimensions, taking metadata aspect ratio into account."""
     debug_msg = "target video dimensions: width %d, height %d, original aspect ratio %s"
     input_aspect_ratio = get_aspect_ratio(input_file)
     if input_aspect_ratio is None:
         logging.debug(debug_msg, SCREEN_WIDTH, SCREEN_HEIGHT, "unknown")
-        return SCREEN_WIDTH, SCREEN_HEIGHT
+        return VideoDimensions(width=SCREEN_WIDTH, height=SCREEN_HEIGHT)
     screen_aspect_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
     if input_aspect_ratio >= screen_aspect_ratio:
         width = SCREEN_WIDTH
@@ -175,7 +187,7 @@ def calculate_dimensions(input_file: str) -> Tuple[int, int]:
         height = SCREEN_HEIGHT
         width = int(input_aspect_ratio * SCREEN_HEIGHT)
     logging.debug(debug_msg, width, height, input_aspect_ratio)
-    return width, height
+    return VideoDimensions(width=width, height=height)
 
 
 def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
@@ -316,7 +328,7 @@ def prepare_video_conversion_command(
         font: Optional[Font],
     ) -> Sequence[str]:
     """Prepare the command for converting the video stream."""
-    width, height = calculate_dimensions(input_file)
+    dimensions = calculate_dimensions(input_file)
     v_cmd = [
         FFMPEG,
         "-hide_banner",
@@ -325,7 +337,7 @@ def prepare_video_conversion_command(
         "-map", "0:v:0",
         "-r", f"{framerate:g}",
         "-sws_flags", "lanczos",
-        "-s", f"{width}x{height}",
+        "-s", f"{dimensions.width}x{dimensions.height}",
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
@@ -652,7 +664,7 @@ def list_input_files(inputs: Iterable[str]) -> Set[str]:
     return set(map(os.path.abspath, gen_input_files(inputs)))
 
 
-def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[Tuple[str, str]]:
+def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[Task]:
     """Prepare a list of (input_file, output_file) pairs."""
 
     def output_filename(input_filename: str) -> str:
@@ -668,20 +680,28 @@ def create_task_list(input_files: Set[str], output: Optional[str]) -> Iterable[T
                     output,
                     os.path.basename(output_filename(single_input_file))
                 )
-            return [(single_input_file, single_output_file)]
+            return [
+                Task(
+                    input_file=single_input_file,
+                    output_file=single_output_file,
+                )
+            ]
         common_input = os.path.commonpath(list(input_files))
         return [
-            (
-                input_file,
-                os.path.join(
+            Task(
+                input_file=input_file,
+                output_file=os.path.join(
                     output,
                     os.path.relpath(output_filename(input_file), common_input)
-                )
+                ),
             )
             for input_file in input_files
         ]
     return [
-        (input_file, output_filename(input_file))
+        Task(
+            input_file=input_file,
+            output_file=output_filename(input_file),
+        )
         for input_file in input_files
     ]
 
@@ -772,8 +792,8 @@ def main() -> None:
     for input_file_or_dir in args.files:
         if not os.path.exists(input_file_or_dir):
             raise ValueError(f"file or directory doesn't exist: {input_file_or_dir}")
-    for input_file, output_file in create_task_list(list_input_files(args.files), args.output):
-        convert_file(input_file, output_file, args)
+    for task in create_task_list(list_input_files(args.files), args.output):
+        convert_file(task.input_file, task.output_file, args)
 
 
 if __name__ == "__main__":
