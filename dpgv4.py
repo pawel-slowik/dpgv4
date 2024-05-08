@@ -57,7 +57,10 @@ class PixelFormats(Enum):
     RGB24 = 3
 
 
-Font = NamedTuple("Font", [("name", Optional[str]), ("size", Optional[int])])
+class Font(NamedTuple):
+    """Font information."""
+    name: Optional[str]
+    size: Optional[int]
 
 
 class ExternalCommandError(Exception):
