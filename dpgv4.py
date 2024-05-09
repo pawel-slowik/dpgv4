@@ -63,6 +63,17 @@ class VideoDimensions(NamedTuple):
     height: int
 
 
+class VideoPadding(NamedTuple):
+    """Video padding information.
+
+    It's possible that the vertical component is superfluous, because even
+    though MoonShell crashes when the video width is not equal to screen width,
+    it does not crash when the difference pertains to height.
+    """
+    horizontal: int
+    vertical: int
+
+
 class Font(NamedTuple):
     """Font information."""
     name: Optional[str]
@@ -188,6 +199,18 @@ def calculate_dimensions(input_file: str) -> VideoDimensions:
         width = int(input_aspect_ratio * SCREEN_HEIGHT)
     logging.debug(debug_msg, width, height, input_aspect_ratio)
     return VideoDimensions(width=width, height=height)
+
+
+def calculate_padding(dimensions: VideoDimensions) -> VideoPadding:
+    """Calculate video padding required to fit exactly into output screen size."""
+    if dimensions.width > SCREEN_WIDTH:
+        raise ValueError(f"scaled video width ({dimensions.width}) exceeds screen width")
+    if dimensions.height > SCREEN_HEIGHT:
+        raise ValueError(f"scaled video height ({dimensions.height}) exceeds screen height")
+    return VideoPadding(
+        horizontal=int((SCREEN_WIDTH - dimensions.width) / 2),
+        vertical=int((SCREEN_HEIGHT - dimensions.height) / 2),
+    )
 
 
 def create_gop(mpeg_file_object: IO[bytes]) -> bytes:
@@ -328,7 +351,14 @@ def prepare_video_conversion_command(
         font: Optional[Font],
     ) -> Sequence[str]:
     """Prepare the command for converting the video stream."""
+
+    def video_filters(dimensions: VideoDimensions, padding: VideoPadding) -> Iterable[str]:
+        yield f"scale={dimensions.width}:{dimensions.height}"
+        if padding.vertical or padding.horizontal:
+            yield f"pad={SCREEN_WIDTH}:{SCREEN_HEIGHT}:{padding.horizontal}:{padding.vertical}"
+
     dimensions = calculate_dimensions(input_file)
+    padding = calculate_padding(dimensions)
     v_cmd = [
         FFMPEG,
         "-hide_banner",
@@ -337,7 +367,7 @@ def prepare_video_conversion_command(
         "-map", "0:v:0",
         "-r", f"{framerate:g}",
         "-sws_flags", "lanczos",
-        "-s", f"{dimensions.width}x{dimensions.height}",
+        "-vf", ",".join(video_filters(dimensions, padding)),
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
