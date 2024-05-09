@@ -50,7 +50,7 @@ def test_options_no_external_zero() -> None:
     options = list(subtitle_options(input_filename, input_index, None))
     assert len(options) >= 2
     assert expected_filename in options[1]
-    assert "stream_index=%d" % expected_index in options[1]
+    assert f"stream_index={expected_index}" in options[1]
 
 
 def test_options_no_external_one() -> None:
@@ -61,7 +61,7 @@ def test_options_no_external_one() -> None:
     options = list(subtitle_options(input_filename, input_index, None))
     assert len(options) >= 2
     assert expected_filename in options[1]
-    assert "stream_index=%d" % expected_index in options[1]
+    assert f"stream_index={expected_index}" in options[1]
 
 
 def test_options_external_none() -> None:
@@ -77,7 +77,7 @@ def test_options_external_zero() -> None:
     options = list(subtitle_options(input_filename, input_index, None))
     assert len(options) >= 2
     assert expected_filename in options[1]
-    assert "stream_index=%d" % expected_index in options[1]
+    assert f"stream_index={expected_index}" in options[1]
 
 
 def test_options_external_one() -> None:
@@ -88,4 +88,4 @@ def test_options_external_one() -> None:
     options = list(subtitle_options(input_filename, input_index, None))
     assert len(options) >= 2
     assert expected_filename in options[1]
-    assert "stream_index=%d" % expected_index in options[1]
+    assert f"stream_index={expected_index}" in options[1]
