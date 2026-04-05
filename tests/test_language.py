@@ -32,6 +32,18 @@ from dpgv4 import stream_matches_language
             id="case insensitive match on language tag",
         ),
         pytest.param(
+            {"tags": {"LANGUAGE": "eng"}},
+            "eng",
+            True,
+            id="exact match on LANGUAGE tag",
+        ),
+        pytest.param(
+            {"tags": {"LANGUAGE": "eng"}},
+            "ENG",
+            True,
+            id="case insensitive match on LANGUAGE tag",
+        ),
+        pytest.param(
             {"tags": {"title": "English"}},
             "English",
             True,

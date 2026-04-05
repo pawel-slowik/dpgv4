@@ -544,7 +544,7 @@ def stream_matches_language(stream: Mapping, language: str) -> bool:
         tags = stream["tags"]
     except KeyError:
         return False
-    for tag_name in ("language", "title"):
+    for tag_name in ("language", "LANGUAGE", "title"):
         try:
             tag_value = tags[tag_name]
         except KeyError:
