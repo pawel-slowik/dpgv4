@@ -379,11 +379,12 @@ def prepare_video_conversion_command(
     return v_cmd
 
 
-def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Sequence[str]:
+def prepare_audio_conversion_command(input_file: str, aid: Union[int, str, None]) -> Sequence[str]:
     """Prepare the command for converting the audio stream."""
-    if check_for_audio_stream(input_file):
+    audio_streams = tuple(list_audio_streams(input_file))
+    if audio_streams:
         input_arguments = ["-i", input_file]
-        map_arguments = ["-map", f"0:a:{0 if aid is None else aid}"]
+        map_arguments = ["-map", f"0:a:{map_audio_id(aid, audio_streams)}"]
     else:
         input_arguments = ["-f", "lavfi", "-i", "anullsrc", "-t", str(get_duration(input_file))]
         map_arguments = ["-map", "0:a:0"]
@@ -403,13 +404,28 @@ def prepare_audio_conversion_command(input_file: str, aid: Optional[int]) -> Seq
     return a_cmd
 
 
-def check_for_audio_stream(filename: str) -> bool:
-    """Check whether the file has an audio stream."""
+def map_audio_id(audio_id: Union[int, str, None], audio_streams: Iterable[Mapping]) -> int:
+    """Convert audio stream description given on the command line into ffmpeg audio stream ID."""
+    if audio_id is None:
+        return 0
+    if isinstance(audio_id, int):
+        return audio_id
+    try:
+        return int(audio_id)
+    except ValueError:
+        pass
+    for index, stream in enumerate(sorted(audio_streams, key=itemgetter("index"))):
+        if stream_matches_language(stream, audio_id):
+            return index
+    return 0
+
+
+def list_audio_streams(filename: str) -> Iterable[Mapping]:
+    """List audio streams."""
     cmd = FFPROBE_JSON + ["-show_streams", "-select_streams", "a", filename]
     raw_output = run_external_command(cmd)
     output = raw_output.decode("utf-8")
-    audio_streams = json.loads(output)["streams"]
-    return bool(audio_streams)
+    return json.loads(output)["streams"]  # type: ignore
 
 
 def video_quality_options() -> Mapping[int, Iterable[str]]:
@@ -798,7 +814,7 @@ def main() -> None:
     )
     audio_group = parser.add_argument_group("audio options")
     audio_group.add_argument(
-        "-a", type=int, dest="aid", metavar="AID",
+        "-a", dest="aid", metavar="AID",
         help="use audio stream AID"
     )
     subtitle_group = parser.add_argument_group("subtitle options")
