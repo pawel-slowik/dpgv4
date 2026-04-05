@@ -526,12 +526,16 @@ def stream_matches_language(stream: Mapping, language: str) -> bool:
     language = language.lower()
     try:
         tags = stream["tags"]
-        return bool(
-            tags["language"].lower() == language
-            or tags["title"].lower() == language
-        )
     except KeyError:
         return False
+    for tag_name in ("language", "title"):
+        try:
+            tag_value = tags[tag_name]
+        except KeyError:
+            continue
+        if tag_value.lower() == language:
+            return True
+    return False
 
 
 def find_sub_file(filename: str) -> Optional[str]:
