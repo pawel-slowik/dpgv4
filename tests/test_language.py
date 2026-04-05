@@ -19,6 +19,7 @@ from dpgv4 import stream_matches_language
             False,
             id="none of the tags matches",
         ),
+
         pytest.param(
             {"tags": {"language": "eng"}},
             "eng",
@@ -32,6 +33,19 @@ from dpgv4 import stream_matches_language
             id="case insensitive match on language tag",
         ),
         pytest.param(
+            {"tags": {"language": "English[eng]"}},
+            "eng",
+            True,
+            id="word match on language tag",
+        ),
+        pytest.param(
+            {"tags": {"language": "English[eng]"}},
+            "english",
+            True,
+            id="case insensitive word match on language tag",
+        ),
+
+        pytest.param(
             {"tags": {"LANGUAGE": "eng"}},
             "eng",
             True,
@@ -44,6 +58,19 @@ from dpgv4 import stream_matches_language
             id="case insensitive match on LANGUAGE tag",
         ),
         pytest.param(
+            {"tags": {"LANGUAGE": "English[eng]"}},
+            "eng",
+            True,
+            id="word match on LANGUAGE tag",
+        ),
+        pytest.param(
+            {"tags": {"LANGUAGE": "English[eng]"}},
+            "ENG",
+            True,
+            id="case insensitive word match on LANGUAGE tag",
+        ),
+
+        pytest.param(
             {"tags": {"title": "English"}},
             "English",
             True,
@@ -54,6 +81,25 @@ from dpgv4 import stream_matches_language
             "ENGLISH",
             True,
             id="case insensitive match on title tag",
+        ),
+        pytest.param(
+            {"tags": {"title": "English[eng]"}},
+            "eng",
+            True,
+            id="word match on title tag",
+        ),
+        pytest.param(
+            {"tags": {"title": "English[eng]"}},
+            "ENGLISH",
+            True,
+            id="case insensitive word match on title tag",
+        ),
+
+        pytest.param(
+            {"tags": {"title": "English 2.0 stereo"}},
+            "2",
+            False,
+            id="no match on irrelevant part",
         ),
     )
 )

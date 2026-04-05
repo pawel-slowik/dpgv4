@@ -551,6 +551,9 @@ def stream_matches_language(stream: Mapping, language: str) -> bool:
             continue
         if tag_value.lower() == language:
             return True
+        tag_words = tuple(word.lower() for word in re.split(r"[\W\d]+", tag_value) if word != "")
+        if language in tag_words:
+            return True
     return False
 
 
