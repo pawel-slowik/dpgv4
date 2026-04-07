@@ -352,13 +352,15 @@ def prepare_video_conversion_command(
     ) -> Sequence[str]:
     """Prepare the command for converting the video stream."""
 
-    def video_filters(dimensions: VideoDimensions, padding: VideoPadding) -> Iterable[str]:
+    def resize_filters(dimensions: VideoDimensions, padding: VideoPadding) -> Iterable[str]:
         yield f"scale={dimensions.width}:{dimensions.height}"
         if padding.vertical or padding.horizontal:
             yield f"pad={SCREEN_WIDTH}:{SCREEN_HEIGHT}:{padding.horizontal}:{padding.vertical}"
 
     dimensions = calculate_dimensions(input_file)
     padding = calculate_padding(dimensions)
+    video_filters = list(resize_filters(dimensions, padding))
+    video_filters += list(subtitle_filters(input_file, sid, font))
     v_cmd = [
         FFMPEG,
         "-hide_banner",
@@ -367,13 +369,12 @@ def prepare_video_conversion_command(
         "-map", "0:v:0",
         "-r", f"{framerate:g}",
         "-sws_flags", "lanczos",
-        "-vf", ",".join(video_filters(dimensions, padding)),
+        "-vf", ",".join(video_filters),
         "-c:v", "mpeg1video",
     ]
     if framerate not in MPEG_SPEC_FRAMERATES:
         v_cmd += ["-strict", "unofficial"]
     v_cmd += video_quality_options()[quality]
-    v_cmd += subtitle_options(input_file, sid, font)
     v_cmd.append("-")
     logging.debug("video encoder command: %s", " ".join(map(quote, v_cmd)))
     return v_cmd
@@ -461,12 +462,12 @@ def video_quality_options() -> Mapping[int, Iterable[str]]:
     }
 
 
-def subtitle_options(
+def subtitle_filters(
         input_file: str,
         sid: Optional[int],
         font: Optional[Font] = None,
     ) -> Iterable[str]:
-    """Prepare ffmpeg options for rendering the subtitle stream (hardsub)."""
+    """Prepare ffmpeg filters for rendering the subtitle stream (hardsub)."""
 
     def quote_sub_filename(filename: str) -> str:
         # the following characters need to be escaped because they have special meaning in the
@@ -501,11 +502,11 @@ def subtitle_options(
             style.append(f"FontSize={font.size}")
     if style:
         filter_options.append(f"force_style='{','.join(style)}'")
-    return ["-vf", f"subtitles={':'.join(filter_options)}"]
+    return [f"subtitles={':'.join(filter_options)}"]
 
 
 def parse_subtitle_stream_id(input_file: str, input_sid: Union[int, str, None]) -> Optional[int]:
-    """Translate the CLI `-s` parameter into a stream index suitable for subtitle_options()."""
+    """Translate the CLI `-s` parameter into a stream index suitable for subtitle_filters()."""
     subtitle_streams = tuple(list_subtitle_streams(input_file))
     external_sub_file = find_sub_file(input_file)
     if input_sid is None:

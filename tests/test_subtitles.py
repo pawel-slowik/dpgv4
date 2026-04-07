@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring
-from dpgv4 import list_subtitle_streams, parse_subtitle_stream_id, subtitle_options
+from dpgv4 import list_subtitle_streams, parse_subtitle_stream_id, subtitle_filters
 from .util import sample_filename
 
 
@@ -39,7 +39,7 @@ def test_parse_internal_by_title() -> None:
 
 def test_options_no_external_none() -> None:
     input_filename = sample_filename("Test Image - 2141.mp4")
-    assert not list(subtitle_options(input_filename, None, None))
+    assert not list(subtitle_filters(input_filename, None, None))
 
 
 def test_options_no_external_zero() -> None:
@@ -47,10 +47,10 @@ def test_options_no_external_zero() -> None:
     input_index = 0
     expected_filename = input_filename
     expected_index = 0
-    options = list(subtitle_options(input_filename, input_index, None))
-    assert len(options) >= 2
-    assert expected_filename in options[1]
-    assert f"stream_index={expected_index}" in options[1]
+    options = list(subtitle_filters(input_filename, input_index, None))
+    assert len(options) >= 1
+    assert expected_filename in options[0]
+    assert f"stream_index={expected_index}" in options[0]
 
 
 def test_options_no_external_one() -> None:
@@ -58,15 +58,15 @@ def test_options_no_external_one() -> None:
     input_index = 1
     expected_filename = input_filename
     expected_index = 1
-    options = list(subtitle_options(input_filename, input_index, None))
-    assert len(options) >= 2
-    assert expected_filename in options[1]
-    assert f"stream_index={expected_index}" in options[1]
+    options = list(subtitle_filters(input_filename, input_index, None))
+    assert len(options) >= 1
+    assert expected_filename in options[0]
+    assert f"stream_index={expected_index}" in options[0]
 
 
 def test_options_external_none() -> None:
     input_filename = sample_filename("World - 2.mp4")
-    assert not list(subtitle_options(input_filename, None, None))
+    assert not list(subtitle_filters(input_filename, None, None))
 
 
 def test_options_external_zero() -> None:
@@ -74,10 +74,10 @@ def test_options_external_zero() -> None:
     input_index = 0
     expected_filename = sample_filename("World - 2.srt")
     expected_index = 0
-    options = list(subtitle_options(input_filename, input_index, None))
-    assert len(options) >= 2
-    assert expected_filename in options[1]
-    assert f"stream_index={expected_index}" in options[1]
+    options = list(subtitle_filters(input_filename, input_index, None))
+    assert len(options) >= 1
+    assert expected_filename in options[0]
+    assert f"stream_index={expected_index}" in options[0]
 
 
 def test_options_external_one() -> None:
@@ -85,7 +85,7 @@ def test_options_external_one() -> None:
     input_index = 1
     expected_filename = input_filename
     expected_index = 0
-    options = list(subtitle_options(input_filename, input_index, None))
-    assert len(options) >= 2
-    assert expected_filename in options[1]
-    assert f"stream_index={expected_index}" in options[1]
+    options = list(subtitle_filters(input_filename, input_index, None))
+    assert len(options) >= 1
+    assert expected_filename in options[0]
+    assert f"stream_index={expected_index}" in options[0]
