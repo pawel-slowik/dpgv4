@@ -11,7 +11,8 @@ def test_header_size() -> None:
 
 def test_known_good_header() -> None:
     header = create_header(722, 24, 488448, 643705, 488)
-    expected = open(sample_filename("World - 2.header"), "rb").read()
+    with open(sample_filename("World - 2.header"), "rb") as sample_file:
+        expected = sample_file.read()
     assert header == expected
 
 

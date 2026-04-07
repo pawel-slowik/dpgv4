@@ -39,7 +39,7 @@ def test_parse_internal_by_title() -> None:
 
 def test_options_no_external_none() -> None:
     input_filename = sample_filename("Test Image - 2141.mp4")
-    assert subtitle_options(input_filename, None, None) == []
+    assert not list(subtitle_options(input_filename, None, None))
 
 
 def test_options_no_external_zero() -> None:
@@ -66,7 +66,7 @@ def test_options_no_external_one() -> None:
 
 def test_options_external_none() -> None:
     input_filename = sample_filename("World - 2.mp4")
-    assert subtitle_options(input_filename, None, None) == []
+    assert not list(subtitle_options(input_filename, None, None))
 
 
 def test_options_external_zero() -> None:
